@@ -4,10 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-smol = "2.0.2"
+iced = { version = "0.14.0-dev", features = ["tokio", "image"] }
+tokio = { version = "1.47.1", features = ["full"] }
+futures = "0.3.31"
+socket2 = "0.6.0"
 libp2p = { version = "0.56.0", features = [
+    "tokio",
     "ping",
     "tcp",
     "noise",
     "yamux",
 ] }
+dirs-next = "2.0.0"
+open = "5.3.2"
+
+[patch.crates-io]
+iced = { git = "https://github.com/iced-rs/iced", rev = "9d56b488cc08b7365fb1839ed47ef92f3ff0fa36" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "9d56b488cc08b7365fb1839ed47ef92f3ff0fa36" }
