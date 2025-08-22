@@ -1,13 +1,25 @@
+mod buffer;
 mod config;
+mod dashboard;
 mod environment;
 mod font;
+mod history;
+mod icon;
+mod logger;
+mod network;
+mod theme;
 mod welcome;
+mod widget;
 mod window;
 
-use iced::{Element, Subscription, Task, Theme, widget::column};
+use config::Config;
+use iced::{Subscription, Task, widget::column};
+use theme::Theme;
+use tokio::runtime;
+use widget::Element;
 
 fn main() -> iced::Result {
-    iced::daemon(Freecord::new, Freecord::update, Freecord::view)
+    iced::daemon(Freecord::initial_setup, Freecord::update, Freecord::view)
         .title(Freecord::title)
         .theme(Freecord::theme)
         .subscription(Freecord::subscription)
@@ -17,37 +29,99 @@ fn main() -> iced::Result {
 
 enum Screen {
     Welcome(welcome::Welcome),
+    Dashboard(dashboard::Dashboard),
 }
 
 /// The state of the app.
 struct Freecord {
     main_window: window::Window,
     screen: Screen,
+    config: Config,
+    theme: Theme,
+    pane_logs: Vec<logger::Record>,
 }
 
 #[derive(Debug)]
 enum Message {
+    ConfigReloaded(Result<Config, config::Error>),
     Window(window::Id, window::Event),
     Welcome(welcome::Message),
+    Dashboard(dashboard::Message),
+    Network(network::Message),
+    Logging(Vec<logger::Record>),
 }
 
 impl Freecord {
-    fn new() -> (Freecord, Task<Message>) {
+    fn new(
+        main_window: window::Id,
+        config: Result<Config, config::Error>,
+        theme: Theme,
+    ) -> (Freecord, Task<Message>) {
+        let (config, screen) = match config {
+            Ok(config) => (config, Screen::Dashboard(dashboard::Dashboard::new())),
+            Err(config::Error::ConfigMissing) => {
+                (Config::default(), Screen::Welcome(welcome::Welcome::new()))
+            }
+            Err(error) => panic!("encountered not yet implemented error handling: {error}"),
+        };
+
+        (
+            Self {
+                main_window: window::Window::new(main_window),
+                screen,
+                config,
+                theme,
+                pane_logs: Vec::new(),
+            },
+            Task::none(),
+        )
+    }
+
+    fn initial_setup() -> (Freecord, Task<Message>) {
+        let is_debug = cfg!(debug_assertions);
+
+        let log_config = Config::load_logs().unwrap_or_default();
+
+        let log_stream = logger::setup(is_debug, log_config).expect("expected logging to be setup");
+        log::info!("freecord {} has started", environment::VERSION);
+        log::info!("config dir: {:?}", environment::config_dir());
+        log::info!("data dir: {:?}", environment::data_dir());
+
+        let config = {
+            let rt = runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("expected async runtime");
+
+            rt.block_on(Config::load())
+        };
+
+        let theme = Theme::default();
+
         let (main_window, open_main_window) = window::open(window::Settings {
             exit_on_close_request: false,
             ..Default::default()
         });
 
-        let freecord = Self {
-            main_window: window::Window::new(main_window),
-            screen: Screen::Welcome(welcome::Welcome::new()),
-        };
+        let (freecord, new_task) = Self::new(main_window, config, theme);
 
-        (freecord, open_main_window.then(|_| Task::none()))
+        let tasks = vec![
+            open_main_window.then(|_| Task::none()),
+            Task::stream(log_stream).map(Message::Logging),
+            new_task,
+        ];
+
+        (freecord, Task::batch(tasks))
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::ConfigReloaded(config) => {
+                let (freecord, task) = Self::new(self.main_window.id, config, self.theme.clone());
+
+                *self = freecord;
+                task
+            }
             Message::Window(id, event) => {
                 if id == self.main_window.id {
                     match event {
@@ -63,7 +137,10 @@ impl Freecord {
                             self.main_window.initialize(position, size);
                             Task::none()
                         }
-                        window::Event::CloseRequested => iced::exit(),
+                        window::Event::CloseRequested => {
+                            log::info!("gracefully shutdown");
+                            iced::exit()
+                        }
                         _ => Task::none(),
                     }
                 } else {
@@ -76,9 +153,38 @@ impl Freecord {
                 };
 
                 match welcome.update(message) {
-                    Some(_) => Task::none(),
+                    Some(welcome::Event::RefreshConfig) => {
+                        Task::perform(Config::load(), Message::ConfigReloaded)
+                    }
                     None => Task::none(),
                 }
+            }
+            Message::Dashboard(message) => {
+                let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    return Task::none();
+                };
+
+                let (task, event) = dashboard.update(message);
+
+                let event_task = match event {
+                    Some(_) => Task::none(),
+                    None => Task::none(),
+                };
+
+                Task::batch(vec![
+                    task.map(Message::Dashboard),
+                    event_task.map(Message::Dashboard),
+                ])
+            }
+            Message::Network(message) => match message {
+                network::Message::Identify(event) => {
+                    println!("{event:?}");
+                    Task::none()
+                }
+            },
+            Message::Logging(records) => {
+                self.pane_logs.extend(records);
+                Task::none()
             }
         }
     }
@@ -88,6 +194,9 @@ impl Freecord {
         if window_id == self.main_window.id {
             match &self.screen {
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
+                Screen::Dashboard(dashboard) => {
+                    dashboard.view(&self.pane_logs).map(Message::Dashboard)
+                }
             }
         } else {
             column![].into()
@@ -99,12 +208,14 @@ impl Freecord {
     }
 
     fn theme(&self, _window_id: window::Id) -> Theme {
-        Theme::GruvboxDark
+        self.theme.clone()
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let subscriptions =
-            vec![window::events().map(|(window, event)| Message::Window(window, event))];
+        let subscriptions = vec![
+            window::events().map(|(window, event)| Message::Window(window, event)),
+            network::listen().map(Message::Network),
+        ];
 
         Subscription::batch(subscriptions)
     }
@@ -112,7 +223,7 @@ impl Freecord {
     fn settings() -> iced::Settings {
         iced::Settings {
             default_font: font::DEFAULT.mono.clone(),
-            default_text_size: 16.into(),
+            default_text_size: 13.into(),
             id: None,
             fonts: font::load(),
             antialiasing: false,

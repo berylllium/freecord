@@ -1,10 +1,10 @@
 use iced::{
-    Element, Length, alignment,
+    Length, alignment,
     theme::Palette,
     widget::{button, column, container, row, text, vertical_space},
 };
 
-use crate::{config::Config, environment};
+use crate::{config::Config, environment, theme, widget::Element};
 
 #[derive(Clone)]
 pub struct Welcome;
@@ -12,12 +12,17 @@ pub struct Welcome;
 #[derive(Clone, Debug)]
 pub enum Message {
     OpenConfigDirectory,
+    RefreshConfig,
 }
 
-pub enum Event {}
+pub enum Event {
+    RefreshConfig,
+}
 
 impl Welcome {
     pub fn new() -> Self {
+        Config::create_initial_config();
+
         Self
     }
 
@@ -28,6 +33,7 @@ impl Welcome {
 
                 None
             }
+            Message::RefreshConfig => Some(Event::RefreshConfig),
         }
     }
 
@@ -36,12 +42,23 @@ impl Welcome {
 
         let config_button = button(
             container(text(config_dir))
-                .align_x(alignment::Horizontal::Center)
-                .width(Length::Shrink),
+                .width(250)
+                .align_x(alignment::Horizontal::Center),
         )
+        .style(|theme, state| theme::button::secondary(theme, state, false))
         .padding([5, 20])
         .width(Length::Shrink)
         .on_press(Message::OpenConfigDirectory);
+
+        let refresh_button = button(
+            container(text("Reload configuration."))
+                .width(250)
+                .align_x(alignment::Horizontal::Center),
+        )
+        .style(|theme, state| theme::button::secondary(theme, state, false))
+        .padding([5, 20])
+        .width(Length::Shrink)
+        .on_press(Message::RefreshConfig);
 
         let content = column![]
             .spacing(1)
@@ -57,6 +74,8 @@ impl Welcome {
             ])
             .push(vertical_space().height(8))
             .push(config_button)
+            .push(vertical_space().height(8))
+            .push(refresh_button)
             .align_x(alignment::Horizontal::Center);
 
         column![
