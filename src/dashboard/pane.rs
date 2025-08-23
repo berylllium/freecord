@@ -5,6 +5,7 @@ use iced::{
 
 use crate::{
     buffer::{self, Buffer},
+    config::Config,
     logger, theme, widget,
 };
 
@@ -35,12 +36,13 @@ impl Pane {
         id: pane_grid::Pane,
         is_focused: bool,
         pane_logs: &[logger::Record],
+        config: &'a Config,
     ) -> widget::Content<'a, Message> {
         let title_bar = self.title_bar.view(&self.buffer);
 
         let content = self
             .buffer
-            .view(id, pane_logs)
+            .view(id, pane_logs, config)
             .map(move |m| Message::Buffer(id, m));
 
         widget::Content::new(content)

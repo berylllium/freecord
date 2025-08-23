@@ -1,8 +1,10 @@
 pub mod logs;
+pub mod pane;
 
 use std::path::PathBuf;
 
 use logs::Logs;
+use pane::Pane;
 use serde::{Deserialize, Serialize};
 
 use crate::environment;
@@ -12,6 +14,7 @@ use crate::environment;
 pub struct Config {
     pub logs: Logs,
     pub font: Font,
+    pub pane: Pane,
 }
 
 impl Config {
@@ -96,6 +99,22 @@ impl Default for Font {
         Self {
             family: Some("Iosevka Term".to_string()),
             size: Some(12),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScrollBar {
+    pub width: u32,
+    pub scroller_width: u32,
+}
+
+impl Default for ScrollBar {
+    fn default() -> Self {
+        Self {
+            width: 5,
+            scroller_width: 5,
         }
     }
 }

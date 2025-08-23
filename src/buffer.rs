@@ -4,7 +4,7 @@ pub mod logs;
 use iced::{Task, widget::pane_grid};
 use logs::Logs;
 
-use crate::{logger, widget::Element};
+use crate::{config::Config, logger, widget::Element};
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -28,10 +28,11 @@ impl Buffer {
         &'a self,
         id: pane_grid::Pane,
         pane_logs: &[logger::Record],
+        config: &'a Config,
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty => empty::view(),
-            Buffer::Logs(logs) => logs.view(pane_logs).map(Message::Logs),
+            Buffer::Logs(logs) => logs.view(pane_logs, config).map(Message::Logs),
         }
     }
 

@@ -10,7 +10,7 @@ use iced::{
 use pane::Pane;
 use sidebar::Sidebar;
 
-use crate::{buffer::Buffer, logger, widget::Element};
+use crate::{buffer::Buffer, config::Config, logger, widget::Element};
 
 pub struct Dashboard {
     panes: Panes,
@@ -65,13 +65,17 @@ impl Dashboard {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, pane_logs: &'a [logger::Record]) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        pane_logs: &'a [logger::Record],
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         let sidebar = self.sidebar.view().map(Message::Sidebar);
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, _maximized| {
             let is_focused = self.focus.pane == id;
 
-            pane.view(id, is_focused, pane_logs)
+            pane.view(id, is_focused, pane_logs, config)
         })
         .on_click(pane::Message::Clicked)
         .on_resize(6, pane::Message::Resized)

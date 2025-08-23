@@ -194,9 +194,9 @@ impl Freecord {
         if window_id == self.main_window.id {
             match &self.screen {
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
-                Screen::Dashboard(dashboard) => {
-                    dashboard.view(&self.pane_logs).map(Message::Dashboard)
-                }
+                Screen::Dashboard(dashboard) => dashboard
+                    .view(&self.pane_logs, &self.config)
+                    .map(Message::Dashboard),
             }
         } else {
             column![].into()

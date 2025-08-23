@@ -1,6 +1,7 @@
 pub mod button;
 pub mod container;
 pub mod pane_grid;
+pub mod scrollable;
 pub mod text;
 
 use iced::Color;
@@ -60,6 +61,10 @@ pub struct General {
     pub background: Color,
     #[serde(with = "color_serde")]
     pub border: Color,
+    #[serde(with = "color_serde")]
+    pub scrollbar: Color,
+    #[serde(with = "color_serde")]
+    pub horizontal_rule: Color,
 }
 
 impl Default for General {
@@ -67,6 +72,8 @@ impl Default for General {
         Self {
             background: Color::TRANSPARENT,
             border: Color::TRANSPARENT,
+            scrollbar: Color::TRANSPARENT,
+            horizontal_rule: Color::TRANSPARENT,
         }
     }
 }

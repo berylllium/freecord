@@ -1,12 +1,14 @@
 use iced::{
-    Length,
-    widget::{Column, container, horizontal_space, row, text},
+    Length, Padding,
+    widget::{Column, container, horizontal_space, row, scrollable, text},
 };
 
-use crate::{logger, widget::Element};
+use crate::{config::Config, logger, widget::Element};
 
 #[derive(Clone, Debug)]
-pub struct Logs {}
+pub struct Logs {
+    scrollable: scrollable::Id,
+}
 
 #[derive(Clone, Debug)]
 pub struct Message {}
@@ -16,10 +18,16 @@ pub struct Event {}
 
 impl Logs {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            scrollable: scrollable::Id::unique(),
+        }
     }
 
-    pub fn view<'a>(&self, pane_logs: &[logger::Record]) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &self,
+        pane_logs: &[logger::Record],
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         let content = Column::from_iter(pane_logs.iter().map(|record| {
             let timestamp = text(record.timestamp.format("%H:%M").to_string());
 
@@ -39,6 +47,17 @@ impl Logs {
             ]
             .into()
         }));
+
+        let content = scrollable(content.padding(Padding::ZERO.right(8)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::default()
+                    .anchor(scrollable::Anchor::End)
+                    .width(config.pane.scrollbar.width)
+                    .scroller_width(config.pane.scrollbar.scroller_width),
+            ))
+            .id(self.scrollable.clone());
 
         container(content)
             .width(Length::Fill)
