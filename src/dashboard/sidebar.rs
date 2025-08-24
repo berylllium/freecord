@@ -3,7 +3,7 @@ use iced::{
     widget::{button, column, vertical_space},
 };
 
-use crate::{icon, widget::Element};
+use crate::{icon, theme, widget::Element};
 
 pub struct Sidebar {}
 
@@ -21,7 +21,10 @@ impl Sidebar {
     pub fn view<'a>(&'a self) -> Element<'a, Message> {
         let contacts = vertical_space().height(Length::Fill);
 
-        let menu_button = button(icon::menu()).on_press(Message::OnPressAddContact);
+        let menu_button = button(icon::menu().style(theme::text::tertiary))
+            .width(Length::Shrink)
+            .padding(5)
+            .on_press(Message::OnPressAddContact);
 
         column![contacts, menu_button].into()
     }

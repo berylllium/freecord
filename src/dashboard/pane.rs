@@ -1,12 +1,16 @@
 use iced::{
     alignment,
-    widget::{container, pane_grid, text},
+    widget::{button, center, container, pane_grid, row, text},
 };
 
 use crate::{
     buffer::{self, Buffer},
     config::Config,
-    logger, theme, widget,
+    icon, logger, theme,
+    widget::{
+        self,
+        tooltip::{self, tooltip},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -15,6 +19,7 @@ pub enum Message {
     Dragged(pane_grid::DragEvent),
     Resized(pane_grid::ResizeEvent),
     Buffer(pane_grid::Pane, buffer::Message),
+    Close,
 }
 
 #[derive(Clone, Debug)]
@@ -34,11 +39,12 @@ impl Pane {
     pub fn view<'a>(
         &'a self,
         id: pane_grid::Pane,
+        panes: usize,
         is_focused: bool,
         pane_logs: &[logger::Record],
         config: &'a Config,
     ) -> widget::Content<'a, Message> {
-        let title_bar = self.title_bar.view(&self.buffer);
+        let title_bar = self.title_bar.view(&self.buffer, panes, true);
 
         let content = self
             .buffer
@@ -55,7 +61,12 @@ impl Pane {
 struct TitleBar {}
 
 impl TitleBar {
-    fn view<'a>(&self, buffer: &Buffer) -> widget::TitleBar<'a, Message> {
+    fn view<'a>(
+        &self,
+        buffer: &Buffer,
+        panes: usize,
+        show_tooltips: bool,
+    ) -> widget::TitleBar<'a, Message> {
         let title_text = match buffer {
             Buffer::Empty => "Empty buffer",
             Buffer::Logs(_) => "Logs",
@@ -66,7 +77,28 @@ impl TitleBar {
             .padding([0, 10])
             .align_y(alignment::Vertical::Center);
 
+        let controls = row![if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
+            let close_button = button(center(icon::cancel()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::Close)
+                .style(|theme, status| theme::button::secondary(theme, status, false));
+
+            let close_button_with_tooltip = tooltip(
+                close_button,
+                show_tooltips.then_some("Close"),
+                tooltip::Position::Bottom,
+            );
+
+            Some(close_button_with_tooltip)
+        } else {
+            None
+        }]
+        .spacing(2);
+
         pane_grid::TitleBar::new(title)
+            .controls(pane_grid::Controls::new(controls))
             .padding(6)
             .style(theme::container::buffer_title_bar)
     }

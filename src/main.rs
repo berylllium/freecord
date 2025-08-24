@@ -53,12 +53,16 @@ enum Message {
 
 impl Freecord {
     fn new(
-        main_window: window::Id,
+        main_window: window::Window,
         config: Result<Config, config::Error>,
         theme: Theme,
+        pane_logs: Vec<logger::Record>,
     ) -> (Freecord, Task<Message>) {
         let (config, screen) = match config {
-            Ok(config) => (config, Screen::Dashboard(dashboard::Dashboard::new())),
+            Ok(config) => (
+                config,
+                Screen::Dashboard(dashboard::Dashboard::new(&main_window)),
+            ),
             Err(config::Error::ConfigMissing) => {
                 (Config::default(), Screen::Welcome(welcome::Welcome::new()))
             }
@@ -67,11 +71,11 @@ impl Freecord {
 
         (
             Self {
-                main_window: window::Window::new(main_window),
+                main_window,
                 screen,
                 config,
                 theme,
-                pane_logs: Vec::new(),
+                pane_logs,
             },
             Task::none(),
         )
@@ -103,7 +107,8 @@ impl Freecord {
             ..Default::default()
         });
 
-        let (freecord, new_task) = Self::new(main_window, config, theme);
+        let (freecord, new_task) =
+            Self::new(window::Window::new(main_window), config, theme, Vec::new());
 
         let tasks = vec![
             open_main_window.then(|_| Task::none()),
@@ -117,7 +122,12 @@ impl Freecord {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ConfigReloaded(config) => {
-                let (freecord, task) = Self::new(self.main_window.id, config, self.theme.clone());
+                let (freecord, task) = Self::new(
+                    self.main_window,
+                    config,
+                    self.theme.clone(),
+                    self.pane_logs.clone(),
+                );
 
                 *self = freecord;
                 task

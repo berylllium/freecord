@@ -1,14 +1,14 @@
 use iced::{Point, Size};
 
-pub use iced::window::{Event, Id, Settings, events, open};
+pub use iced::window::{Event, Id, Settings, close, events, gain_focus, open};
 
+#[derive(Debug, Clone, Copy)]
 pub struct Window {
     pub id: Id,
     pub focused: bool,
     pub state: WindowState,
 }
-
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum WindowState {
     #[default]
     Uninitialized,

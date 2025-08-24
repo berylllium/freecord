@@ -40,7 +40,7 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
         background: Some(iced::Background::Color(
             theme.styles.buffer.background_title_bar,
         )),
-        text_color: Some(theme.styles.text.secondary),
+        text_color: Some(theme.styles.text.primary),
 
         border: Border {
             radius: border::top_left(4).top_right(4),
@@ -55,6 +55,20 @@ pub fn general(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.styles.general.background)),
         text_color: Some(theme.styles.text.primary),
+        ..Default::default()
+    }
+}
+
+pub fn tooltip(theme: &Theme) -> Style {
+    let general = theme.styles.general;
+
+    Style {
+        background: Some(Background::Color(general.background)),
+        border: Border {
+            radius: 4.0.into(),
+            width: 1.0,
+            color: general.border,
+        },
         ..Default::default()
     }
 }

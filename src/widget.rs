@@ -1,3 +1,5 @@
+pub mod tooltip;
+
 use crate::theme::Theme;
 
 pub type Renderer = iced::Renderer;

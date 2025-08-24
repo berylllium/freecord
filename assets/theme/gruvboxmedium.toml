@@ -12,8 +12,8 @@ border_focus = "#83a589"
 
 [text]
 primary = "#fbf1c7"
-secondary = "#ebdbb2"
-tertiary = "#d5c4a1"
+secondary = "#a89984"
+tertiary = "#504945"
 
 [button.primary]
 background = "#282828"
