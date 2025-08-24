@@ -42,3 +42,10 @@ impl Buffer {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum BufferAction {
+    Replace,
+    NewPane,
+    NewWindow,
+}

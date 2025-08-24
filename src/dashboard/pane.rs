@@ -19,6 +19,8 @@ pub enum Message {
     Dragged(pane_grid::DragEvent),
     Resized(pane_grid::ResizeEvent),
     Buffer(pane_grid::Pane, buffer::Message),
+    Merge,
+    Popout,
     Close,
 }
 
@@ -43,8 +45,9 @@ impl Pane {
         is_focused: bool,
         pane_logs: &[logger::Record],
         config: &'a Config,
+        is_popout: bool,
     ) -> widget::Content<'a, Message> {
-        let title_bar = self.title_bar.view(&self.buffer, panes, true);
+        let title_bar = self.title_bar.view(&self.buffer, panes, true, is_popout);
 
         let content = self
             .buffer
@@ -66,6 +69,7 @@ impl TitleBar {
         buffer: &Buffer,
         panes: usize,
         show_tooltips: bool,
+        is_popout: bool,
     ) -> widget::TitleBar<'a, Message> {
         let title_text = match buffer {
             Buffer::Empty => "Empty buffer",
@@ -77,24 +81,59 @@ impl TitleBar {
             .padding([0, 10])
             .align_y(alignment::Vertical::Center);
 
-        let controls = row![if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let close_button = button(center(icon::cancel()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(Message::Close)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+        let controls = row![
+            if is_popout {
+                let merge_button = button(center(icon::popout()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Merge)
+                    .style(|theme, status| theme::button::secondary(theme, status, true));
 
-            let close_button_with_tooltip = tooltip(
-                close_button,
-                show_tooltips.then_some("Close"),
-                tooltip::Position::Bottom,
-            );
+                let merge_button_with_tooltip = tooltip(
+                    merge_button,
+                    show_tooltips.then_some("Merge"),
+                    tooltip::Position::Bottom,
+                );
 
-            Some(close_button_with_tooltip)
-        } else {
-            None
-        }]
+                Some(merge_button_with_tooltip)
+            } else if panes > 1 {
+                let popout_button = button(center(icon::popout()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Popout)
+                    .style(|theme, status| theme::button::secondary(theme, status, false));
+
+                let popout_button_with_tooltip = tooltip(
+                    popout_button,
+                    show_tooltips.then_some("Pop Out"),
+                    tooltip::Position::Bottom,
+                );
+
+                Some(popout_button_with_tooltip)
+            } else {
+                None
+            },
+            if !(is_popout || panes == 1 && matches!(buffer, Buffer::Empty)) {
+                let close_button = button(center(icon::cancel()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Close)
+                    .style(|theme, status| theme::button::secondary(theme, status, false));
+
+                let close_button_with_tooltip = tooltip(
+                    close_button,
+                    show_tooltips.then_some("Close"),
+                    tooltip::Position::Bottom,
+                );
+
+                Some(close_button_with_tooltip)
+            } else {
+                None
+            }
+        ]
         .spacing(2);
 
         pane_grid::TitleBar::new(title)

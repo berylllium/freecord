@@ -7,14 +7,14 @@ use std::{
 };
 
 use iced::{
-    Length, Task, alignment,
-    widget::{PaneGrid, container, pane_grid, row},
+    Length, Task, Vector, alignment,
+    widget::{PaneGrid, column, container, pane_grid, row},
 };
 use pane::Pane;
 use sidebar::Sidebar;
 
 use crate::{
-    buffer::Buffer,
+    buffer::{Buffer, BufferAction},
     config::Config,
     logger,
     widget::Element,
@@ -35,6 +35,7 @@ pub struct Dashboard {
 pub enum Message {
     Sidebar(sidebar::Message),
     Pane(window::Id, pane::Message),
+    NewWindow(window::Id, Pane),
 }
 
 pub enum Event {}
@@ -61,7 +62,7 @@ impl Dashboard {
             last_changed: None,
         }
     }
-    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
+    pub fn update(&mut self, message: Message, config: &Config) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Pane(window, message) => match message {
                 pane::Message::Clicked(pane) => return (self.focus_pane(window, pane), None),
@@ -76,15 +77,48 @@ impl Dashboard {
                     self.panes.main.resize(split, ratio);
                     self.last_changed = Some(Instant::now());
                 }
-                pane::Message::Buffer(pane, message) => {}
+                pane::Message::Buffer(_pane, _message) => {}
+                pane::Message::Popout => return (self.popout_pane(config), None),
+                pane::Message::Merge => return (self.merge_pane(config), None),
                 pane::Message::Close => {
                     return (self.close_pane(window, self.focus.pane), None);
                 }
             },
             Message::Sidebar(_) => {}
+            Message::NewWindow(window, pane) => {
+                let (state, pane) = pane_grid::State::new(pane);
+                self.panes.popout.insert(window, state);
+
+                return (self.focus_pane(window, pane), None);
+            }
         }
 
         (Task::none(), None)
+    }
+
+    pub fn view_popout<'a>(
+        &'a self,
+        window: window::Id,
+        pane_logs: &'a [logger::Record],
+        config: &'a Config,
+    ) -> Element<'a, Message> {
+        if let Some(state) = self.panes.popout.get(&window) {
+            let content = container(
+                PaneGrid::new(state, |id, pane, _maximized| {
+                    let is_focused = self.is_focused(window, id);
+
+                    pane.view(id, 1, is_focused, pane_logs, config, true)
+                })
+                .on_click(pane::Message::Clicked),
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(8);
+
+            Element::new(content).map(move |message| Message::Pane(window, message))
+        } else {
+            column![].into()
+        }
     }
 
     pub fn view<'a>(
@@ -95,11 +129,7 @@ impl Dashboard {
         let sidebar = self.sidebar.view().map(Message::Sidebar);
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, _maximized| {
-            let is_focused = self.focus
-                == Focus {
-                    window: self.main_window(),
-                    pane: id,
-                };
+            let is_focused = self.is_focused(self.main_window(), id);
 
             pane.view(
                 id,
@@ -107,6 +137,7 @@ impl Dashboard {
                 is_focused,
                 pane_logs,
                 config,
+                false,
             )
         })
         .on_click(pane::Message::Clicked)
@@ -149,7 +180,7 @@ impl Dashboard {
     }
 
     fn focus_pane(&mut self, window: window::Id, pane: pane_grid::Pane) -> Task<Message> {
-        if self.focus != (Focus { window, pane }) {
+        if !self.is_focused(window, pane) {
             self.focus = Focus { window, pane };
 
             self.last_changed = Some(Instant::now());
@@ -193,6 +224,83 @@ impl Dashboard {
         window::gain_focus(window).chain(task)
     }
 
+    fn new_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
+        if self.focus.window == self.main_window() {
+            return self.split_pane(axis);
+        } else {
+            let pane = self.panes.main.iter().last().map(|(pane, _)| pane).copied();
+
+            if let Some(pane) = pane {
+                let result = self.panes.main.split(axis, pane, Pane::new(Buffer::Empty));
+                self.last_changed = Some(Instant::now());
+
+                if let Some((pane, _)) = result {
+                    return self.focus_pane(self.main_window(), pane);
+                }
+            } else {
+                let (state, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
+                self.panes.main = state;
+                self.last_changed = Some(Instant::now());
+                return self.focus_pane(self.main_window(), pane);
+            }
+        }
+
+        Task::none()
+    }
+
+    fn split_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
+        if self.focus.window == self.main_window() {
+            let result = self
+                .panes
+                .main
+                .split(axis, self.focus.pane, Pane::new(Buffer::Empty));
+            self.last_changed = Some(Instant::now());
+
+            if let Some((pane, _)) = result {
+                return self.focus_pane(self.main_window(), pane);
+            }
+        }
+
+        Task::none()
+    }
+
+    fn popout_pane(&mut self, config: &Config) -> Task<Message> {
+        let Focus { pane, .. } = self.focus;
+
+        self.focus_history = self
+            .focus_history
+            .clone()
+            .into_iter()
+            .filter(|p| *p != pane)
+            .collect();
+
+        if let Some((pane, _)) = self.panes.main.close(pane) {
+            return self.open_buffer(pane.buffer, BufferAction::NewWindow, config);
+        }
+
+        Task::none()
+    }
+
+    fn merge_pane(&mut self, config: &Config) -> Task<Message> {
+        let Focus { window, pane } = self.focus;
+
+        if let Some(pane) = self
+            .panes
+            .popout
+            .remove(&window)
+            .and_then(|panes| panes.get(pane).cloned())
+        {
+            let task = self.open_buffer(pane.buffer, BufferAction::NewPane, config);
+
+            return Task::batch(vec![
+                window::close(window),
+                window::gain_focus(self.main_window()).chain(task),
+            ]);
+        }
+
+        Task::none()
+    }
+
     fn close_pane(&mut self, window: window::Id, pane: pane_grid::Pane) -> Task<Message> {
         self.last_changed = Some(Instant::now());
 
@@ -218,6 +326,76 @@ impl Dashboard {
         Task::none()
     }
 
+    fn open_buffer(
+        &mut self,
+        buffer: Buffer,
+        buffer_action: BufferAction,
+        config: &Config,
+    ) -> Task<Message> {
+        let panes = self.panes.clone();
+
+        self.last_changed = Some(Instant::now());
+
+        match buffer_action {
+            BufferAction::Replace => Task::none(),
+            BufferAction::NewPane => {
+                if self.panes.len() == 1 {
+                    for (id, pane) in panes.main.iter() {
+                        if matches!(pane.buffer, Buffer::Empty) {
+                            self.panes.main.panes.entry(*id).and_modify(|p| {
+                                *p = Pane::new(Buffer::from(buffer));
+                            });
+                            self.last_changed = Some(Instant::now());
+
+                            return self.focus_pane(self.main_window(), *id);
+                        }
+                    }
+                }
+
+                let pane_to_split = {
+                    if self.focus.window == self.main_window() {
+                        self.focus.pane
+                    } else if let Some(pane) = self.panes.main.panes.keys().last() {
+                        *pane
+                    } else {
+                        log::error!("Didn't find any panes to split");
+                        return Task::none();
+                    }
+                };
+
+                let result = self.panes.main.split(
+                    config.pane.split_axis.into(),
+                    pane_to_split,
+                    Pane::new(Buffer::from(buffer)),
+                );
+
+                if let Some((pane, _)) = result {
+                    return self.focus_pane(self.main_window(), pane);
+                }
+
+                Task::none()
+            }
+            BufferAction::NewWindow => {
+                window::get_position(self.main_window()).then(move |main_window_position| {
+                    let (_, task) = window::open(window::Settings {
+                        position: main_window_position
+                            .map(|point| {
+                                window::Position::Specific(point + Vector::new(20.0, 20.0))
+                            })
+                            .unwrap_or_default(),
+                        exit_on_close_request: false,
+                        ..window::settings()
+                    });
+
+                    task.map({
+                        let pane = Pane::new(buffer.clone());
+                        move |id| Message::NewWindow(id, pane.clone())
+                    })
+                })
+            }
+        }
+    }
+
     fn main_window(&self) -> window::Id {
         self.panes.main_window
     }
@@ -233,6 +411,7 @@ pub struct Focus {
     pub pane: pane_grid::Pane,
 }
 
+#[derive(Clone)]
 pub struct Panes {
     main_window: window::Id,
     main: pane_grid::State<Pane>,

@@ -104,7 +104,7 @@ impl Freecord {
 
         let (main_window, open_main_window) = window::open(window::Settings {
             exit_on_close_request: false,
-            ..Default::default()
+            ..window::settings()
         });
 
         let (freecord, new_task) =
@@ -174,7 +174,7 @@ impl Freecord {
                     return Task::none();
                 };
 
-                let (task, event) = dashboard.update(message);
+                let (task, event) = dashboard.update(message, &self.config);
 
                 let event_task = match event {
                     Some(_) => Task::none(),
@@ -208,6 +208,11 @@ impl Freecord {
                     .view(&self.pane_logs, &self.config)
                     .map(Message::Dashboard),
             }
+        // Popped out.
+        } else if let Screen::Dashboard(dashboard) = &self.screen {
+            dashboard
+                .view_popout(window_id, &self.pane_logs, &self.config)
+                .map(Message::Dashboard)
         } else {
             column![].into()
         }

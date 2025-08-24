@@ -8,6 +8,10 @@ pub fn cancel<'a>() -> Text<'a> {
     to_text('\u{E813}')
 }
 
+pub fn popout<'a>() -> Text<'a> {
+    to_text('\u{E814}')
+}
+
 pub fn config_file<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }

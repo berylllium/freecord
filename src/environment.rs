@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CONFIG_FILE_NAME: &str = "config.toml";
+pub const APPLICATION_ID: &str = "com.berylllium.freecord";
 pub const XDG_DIR_NAME: &str = "freecord";
 
 pub fn config_dir() -> PathBuf {

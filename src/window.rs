@@ -1,6 +1,8 @@
 use iced::{Point, Size};
 
-pub use iced::window::{Event, Id, Settings, close, events, gain_focus, open};
+pub use iced::window::{
+    Event, Id, Position, Settings, close, events, gain_focus, get_position, open,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Window {
@@ -36,4 +38,28 @@ impl Window {
             } => panic!("Cannot initialize an already initialized window."),
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+pub fn settings() -> Settings {
+    use crate::environment;
+    use iced::window;
+
+    Settings {
+        platform_specific: window::settings::PlatformSpecific {
+            application_id: environment::APPLICATION_ID.to_string(),
+            override_redirect: false,
+        },
+        ..Default::default()
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn settings() -> Settings {
+    panic!("platform specific window settings for windows have not been defined yet");
+}
+
+#[cfg(target_os = "macos")]
+pub fn settings() -> Settings {
+    panic!("platform specific window settings for macos have not been defined yet");
 }
