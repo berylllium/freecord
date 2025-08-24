@@ -6,9 +6,9 @@ horizontal_rule = "#458588"
 
 [buffer]
 background = "#3c3836"
-background_title_bar = "#83a589"
+background_title_bar = "#458588"
 border = "#1d2021"
-border_focus = "#83a589"
+border_focus = "#458588"
 
 [text]
 primary = "#fbf1c7"
