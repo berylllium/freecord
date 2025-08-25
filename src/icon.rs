@@ -12,6 +12,10 @@ pub fn popout<'a>() -> Text<'a> {
     to_text('\u{E814}')
 }
 
+pub fn logs<'a>() -> Text<'a> {
+    to_text('\u{E809}')
+}
+
 pub fn config_file<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }

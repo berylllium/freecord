@@ -14,6 +14,7 @@ pub struct Sidebar {}
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    OpenLogs,
     OpenConfigFile,
     ReloadConfig,
     ConfigReloaded(Result<Config, config::Error>),
@@ -21,6 +22,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    OpenLogs,
     OpenConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
 }
@@ -35,6 +37,7 @@ impl Sidebar {
             Message::OpenConfigFile => (Task::none(), Some(Event::OpenConfigFile)),
             Message::ReloadConfig => (Task::perform(Config::load(), Message::ConfigReloaded), None),
             Message::ConfigReloaded(config) => (Task::none(), Some(Event::ConfigReloaded(config))),
+            Message::OpenLogs => (Task::none(), Some(Event::OpenLogs)),
         }
     }
 
@@ -73,6 +76,7 @@ impl Sidebar {
                     )
                     .padding(5)
                     .into(),
+                    Menu::OpenLogs => context_button(text("Logs"), icon::logs(), Message::OpenLogs),
                     Menu::OpenConfigFile => context_button(
                         text("Open config file"),
                         icon::config_file(),
@@ -95,10 +99,16 @@ enum Menu {
     Version,
     OpenConfigFile,
     ReloadConfigFile,
+    OpenLogs,
 }
 
 impl Menu {
     fn list() -> Vec<Self> {
-        vec![Self::Version, Self::OpenConfigFile, Self::ReloadConfigFile]
+        vec![
+            Self::Version,
+            Self::OpenLogs,
+            Self::OpenConfigFile,
+            Self::ReloadConfigFile,
+        ]
     }
 }

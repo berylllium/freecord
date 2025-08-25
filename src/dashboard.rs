@@ -14,7 +14,7 @@ use pane::Pane;
 use sidebar::Sidebar;
 
 use crate::{
-    buffer::{Buffer, BufferAction},
+    buffer::{self, Buffer, BufferAction},
     config::{self, Config},
     logger,
     widget::Element,
@@ -45,7 +45,7 @@ pub enum Event {
 impl Dashboard {
     pub fn new(main_window: &Window) -> Self {
         let (mut state, pane) =
-            pane_grid::State::new(Pane::new(Buffer::Logs(crate::buffer::logs::Logs::new())));
+            pane_grid::State::new(Pane::new(Buffer::Logs(buffer::logs::Logs::new())));
 
         state.split(pane_grid::Axis::Vertical, pane, Pane::new(Buffer::Empty));
 
@@ -94,6 +94,14 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
+                    sidebar::Event::OpenLogs => (
+                        self.open_buffer(
+                            Buffer::Logs(buffer::logs::Logs::new()),
+                            BufferAction::NewPane,
+                            config,
+                        ),
+                        None,
+                    ),
                     sidebar::Event::OpenConfigFile => {
                         let _ = open::that_detached(Config::path());
                         (Task::none(), None)

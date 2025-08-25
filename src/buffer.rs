@@ -20,10 +20,6 @@ pub enum Message {
 pub enum Event {}
 
 impl Buffer {
-    pub fn empty() -> Self {
-        Self::Empty
-    }
-
     pub fn view<'a>(
         &'a self,
         id: pane_grid::Pane,
