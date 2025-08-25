@@ -1,14 +1,14 @@
 mod buffer;
 mod config;
-mod dashboard;
 mod environment;
 mod font;
 mod history;
 mod icon;
+mod identity;
 mod logger;
 mod network;
+mod screen;
 mod theme;
-mod welcome;
 mod widget;
 mod window;
 
@@ -28,8 +28,8 @@ fn main() -> iced::Result {
 }
 
 enum Screen {
-    Welcome(welcome::Welcome),
-    Dashboard(dashboard::Dashboard),
+    Welcome(screen::welcome::Welcome),
+    Dashboard(screen::dashboard::Dashboard),
 }
 
 /// The state of the app.
@@ -45,8 +45,8 @@ struct Freecord {
 enum Message {
     ConfigReloaded(Result<Config, config::Error>),
     Window(window::Id, window::Event),
-    Welcome(welcome::Message),
-    Dashboard(dashboard::Message),
+    Welcome(screen::welcome::Message),
+    Dashboard(screen::dashboard::Message),
     Network(network::Message),
     Logging(Vec<logger::Record>),
 }
@@ -61,11 +61,12 @@ impl Freecord {
         let (config, screen) = match config {
             Ok(config) => (
                 config,
-                Screen::Dashboard(dashboard::Dashboard::new(&main_window)),
+                Screen::Dashboard(screen::dashboard::Dashboard::new(&main_window)),
             ),
-            Err(config::Error::ConfigMissing) => {
-                (Config::default(), Screen::Welcome(welcome::Welcome::new()))
-            }
+            Err(config::Error::ConfigMissing) => (
+                Config::default(),
+                Screen::Welcome(screen::welcome::Welcome::new()),
+            ),
             Err(error) => panic!("encountered not yet implemented error handling: {error}"),
         };
 
@@ -153,7 +154,7 @@ impl Freecord {
                 };
 
                 match welcome.update(message) {
-                    Some(welcome::Event::RefreshConfig) => {
+                    Some(screen::welcome::Event::RefreshConfig) => {
                         Task::perform(Config::load(), Message::ConfigReloaded)
                     }
                     None => Task::none(),
@@ -168,7 +169,9 @@ impl Freecord {
 
                 let task = if let Some(event) = event {
                     match event {
-                        dashboard::Event::ConfigReloaded(config) => self.reload_config(config),
+                        screen::dashboard::Event::ConfigReloaded(config) => {
+                            self.reload_config(config)
+                        }
                     }
                 } else {
                     Task::none()

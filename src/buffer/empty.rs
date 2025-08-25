@@ -6,7 +6,7 @@ use iced::{
 use crate::widget::Element;
 
 pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
-    let content = text("empty pane");
+    let content = text("empty buffer");
 
     container(content)
         .align_x(alignment::Horizontal::Center)
