@@ -1,3 +1,5 @@
+pub mod context_menu;
+pub mod double_pass;
 pub mod tooltip;
 
 use crate::theme::Theme;

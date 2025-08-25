@@ -121,17 +121,7 @@ impl Freecord {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ConfigReloaded(config) => {
-                let (freecord, task) = Self::new(
-                    self.main_window,
-                    config,
-                    self.theme.clone(),
-                    self.pane_logs.clone(),
-                );
-
-                *self = freecord;
-                task
-            }
+            Message::ConfigReloaded(config) => self.reload_config(config),
             Message::Window(id, event) => {
                 if id == self.main_window.id {
                     match event {
@@ -174,17 +164,17 @@ impl Freecord {
                     return Task::none();
                 };
 
-                let (task, event) = dashboard.update(message, &self.config);
+                let (event_task, event) = dashboard.update(message, &self.config);
 
-                let event_task = match event {
-                    Some(_) => Task::none(),
-                    None => Task::none(),
+                let task = if let Some(event) = event {
+                    match event {
+                        dashboard::Event::ConfigReloaded(config) => self.reload_config(config),
+                    }
+                } else {
+                    Task::none()
                 };
 
-                Task::batch(vec![
-                    task.map(Message::Dashboard),
-                    event_task.map(Message::Dashboard),
-                ])
+                Task::batch(vec![task, event_task.map(Message::Dashboard)])
             }
             Message::Network(message) => match message {
                 network::Message::Identify(event) => {
@@ -205,7 +195,7 @@ impl Freecord {
             match &self.screen {
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(&self.pane_logs, &self.config)
+                    .view(&self.pane_logs, &self.config, environment::VERSION)
                     .map(Message::Dashboard),
             }
         // Popped out.
@@ -243,5 +233,19 @@ impl Freecord {
             fonts: font::load(),
             antialiasing: false,
         }
+    }
+}
+
+impl Freecord {
+    fn reload_config(&mut self, new_config_result: Result<Config, config::Error>) -> Task<Message> {
+        let (freecord, task) = Self::new(
+            self.main_window,
+            new_config_result,
+            self.theme.clone(),
+            self.pane_logs.clone(),
+        );
+
+        *self = freecord;
+        task
     }
 }

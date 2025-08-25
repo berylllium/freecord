@@ -1,5 +1,6 @@
 pub mod button;
 pub mod container;
+pub mod context_menu;
 pub mod pane_grid;
 pub mod scrollable;
 pub mod text;

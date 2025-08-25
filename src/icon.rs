@@ -16,6 +16,10 @@ pub fn config_file<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }
 
+pub fn refresh<'a>() -> Text<'a> {
+    to_text('\u{E815}')
+}
+
 pub fn menu<'a>() -> Text<'a> {
     to_text('\u{F0C9}')
 }

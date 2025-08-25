@@ -15,7 +15,7 @@ use sidebar::Sidebar;
 
 use crate::{
     buffer::{Buffer, BufferAction},
-    config::Config,
+    config::{self, Config},
     logger,
     widget::Element,
     window::{self, Window},
@@ -38,7 +38,9 @@ pub enum Message {
     NewWindow(window::Id, Pane),
 }
 
-pub enum Event {}
+pub enum Event {
+    ConfigReloaded(Result<Config, config::Error>),
+}
 
 impl Dashboard {
     pub fn new(main_window: &Window) -> Self {
@@ -84,7 +86,28 @@ impl Dashboard {
                     return (self.close_pane(window, self.focus.pane), None);
                 }
             },
-            Message::Sidebar(_) => {}
+            Message::Sidebar(message) => {
+                let (task, event) = self.sidebar.update(message);
+
+                let Some(event) = event else {
+                    return (task.map(Message::Sidebar), None);
+                };
+
+                let (event_task, event) = match event {
+                    sidebar::Event::OpenConfigFile => {
+                        let _ = open::that_detached(Config::path());
+                        (Task::none(), None)
+                    }
+                    sidebar::Event::ConfigReloaded(config) => {
+                        (Task::none(), Some(Event::ConfigReloaded(config)))
+                    }
+                };
+
+                return (
+                    Task::batch(vec![task.map(Message::Sidebar), event_task]),
+                    event,
+                );
+            }
             Message::NewWindow(window, pane) => {
                 let (state, pane) = pane_grid::State::new(pane);
                 self.panes.popout.insert(window, state);
@@ -125,8 +148,9 @@ impl Dashboard {
         &'a self,
         pane_logs: &'a [logger::Record],
         config: &'a Config,
+        version: &'static str,
     ) -> Element<'a, Message> {
-        let sidebar = self.sidebar.view().map(Message::Sidebar);
+        let sidebar = self.sidebar.view(version).map(Message::Sidebar);
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, _maximized| {
             let is_focused = self.is_focused(self.main_window(), id);
