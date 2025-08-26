@@ -1,8 +1,10 @@
 [general]
 background = "#282828"
+background_success = "#98971a"
+background_failure = "#cc241d"
 border = "#504945"
 scrollbar = "#1d2021"
-horizontal_rule = "#458588"
+horizontal_rule = "#3c3836"
 
 [buffer]
 background = "#3c3836"
@@ -26,3 +28,9 @@ background = "#323034"
 background_hover = "#3e3c41"
 background_selected = "#606155"
 background_selected_hover = "#6f7160"
+
+[button.dangerous]
+background = "#9d0006"
+background_hover = "#cc241d"
+background_selected = "#cc241d"
+background_selected_hover = "#fb4934"

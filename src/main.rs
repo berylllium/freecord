@@ -14,6 +14,7 @@ mod window;
 
 use config::Config;
 use iced::{Subscription, Task, widget::column};
+use identity::Identity;
 use theme::Theme;
 use tokio::runtime;
 use widget::Element;
@@ -29,6 +30,7 @@ fn main() -> iced::Result {
 
 enum Screen {
     Welcome(screen::welcome::Welcome),
+    Identity(screen::identity::Identity),
     Dashboard(screen::dashboard::Dashboard),
 }
 
@@ -37,6 +39,7 @@ struct Freecord {
     main_window: window::Window,
     screen: Screen,
     config: Config,
+    identity: Identity,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
 }
@@ -46,6 +49,7 @@ enum Message {
     ConfigReloaded(Result<Config, config::Error>),
     Window(window::Id, window::Event),
     Welcome(screen::welcome::Message),
+    Identity(screen::identity::Message),
     Dashboard(screen::dashboard::Message),
     Network(network::Message),
     Logging(Vec<logger::Record>),
@@ -55,13 +59,15 @@ impl Freecord {
     fn new(
         main_window: window::Window,
         config: Result<Config, config::Error>,
+        identity: Identity,
         theme: Theme,
         pane_logs: Vec<logger::Record>,
     ) -> (Freecord, Task<Message>) {
         let (config, screen) = match config {
             Ok(config) => (
                 config,
-                Screen::Dashboard(screen::dashboard::Dashboard::new(&main_window)),
+                Screen::Identity(screen::identity::Identity::new()),
+                // Screen::Dashboard(screen::dashboard::Dashboard::new(&main_window)),
             ),
             Err(config::Error::ConfigMissing) => (
                 Config::default(),
@@ -74,6 +80,7 @@ impl Freecord {
             Self {
                 main_window,
                 screen,
+                identity,
                 config,
                 theme,
                 pane_logs,
@@ -101,6 +108,14 @@ impl Freecord {
             rt.block_on(Config::load())
         };
 
+        let identity = match Identity::load() {
+            Ok(identity) => identity,
+            Err(err) => match err {
+                identity::Error::NoPrivateKeyOnDisk => Identity::default(),
+                _ => panic!("{err}"),
+            },
+        };
+
         let theme = Theme::default();
 
         let (main_window, open_main_window) = window::open(window::Settings {
@@ -108,8 +123,13 @@ impl Freecord {
             ..window::settings()
         });
 
-        let (freecord, new_task) =
-            Self::new(window::Window::new(main_window), config, theme, Vec::new());
+        let (freecord, new_task) = Self::new(
+            window::Window::new(main_window),
+            config,
+            identity,
+            theme,
+            Vec::new(),
+        );
 
         let tasks = vec![
             open_main_window.then(|_| Task::none()),
@@ -160,6 +180,43 @@ impl Freecord {
                     None => Task::none(),
                 }
             }
+            Message::Identity(message) => {
+                let Screen::Identity(identity) = &mut self.screen else {
+                    return Task::none();
+                };
+
+                let (event_task, event) = identity.update(message, &self.identity);
+
+                let task = if let Some(event) = event {
+                    match event {
+                        screen::identity::Event::GenerateSecretKey => {
+                            let keys = identity::Keys::generate();
+                            keys.save_private_key().unwrap_or_else(|e| {
+                                log::error!("Failed to save private key to disk: {e}")
+                            });
+                            keys.save_public_key().unwrap_or_else(|e| {
+                                log::error!("Failed to save public key to disk: {e}")
+                            });
+                            self.identity.keys = Some(keys);
+
+                            Task::none()
+                        }
+                        screen::identity::Event::DeleteSecretKey => {
+                            if let Some(keys) = &self.identity.keys {
+                                keys.delete_keypair();
+                            }
+
+                            self.identity.keys = None;
+
+                            Task::none()
+                        }
+                    }
+                } else {
+                    Task::none()
+                };
+
+                Task::batch(vec![task, event_task.map(Message::Identity)])
+            }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Task::none();
@@ -197,6 +254,7 @@ impl Freecord {
         if window_id == self.main_window.id {
             match &self.screen {
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
+                Screen::Identity(identity) => identity.view(&self.identity).map(Message::Identity),
                 Screen::Dashboard(dashboard) => dashboard
                     .view(&self.pane_logs, &self.config, environment::VERSION)
                     .map(Message::Dashboard),
@@ -244,6 +302,7 @@ impl Freecord {
         let (freecord, task) = Self::new(
             self.main_window,
             new_config_result,
+            self.identity.clone(),
             self.theme.clone(),
             self.pane_logs.clone(),
         );

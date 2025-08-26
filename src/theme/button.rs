@@ -92,3 +92,22 @@ pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
 
     button(foreground, background, background_hover, status)
 }
+
+pub fn dangerous(theme: &Theme, status: Status, selected: bool) -> Style {
+    let foreground = theme.styles.text.primary;
+    let button_colors = theme.styles.button.dangerous;
+
+    let background = if selected {
+        button_colors.background_selected
+    } else {
+        button_colors.background
+    };
+
+    let background_hover = if selected {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_hover
+    };
+
+    button(foreground, background, background_hover, status)
+}

@@ -41,7 +41,6 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
             theme.styles.buffer.background_title_bar,
         )),
         text_color: Some(theme.styles.text.primary),
-
         border: Border {
             radius: border::top_left(4).top_right(4),
             width: 1.0,

@@ -12,7 +12,7 @@ iced = { version = "0.14.0-dev", features = [
     "lazy",
     "advanced",
 ] }
-tokio = { version = "1.47.1", features = ["rt", "fs", "process"] }
+tokio = { version = "1.47.1", features = ["rt", "fs", "io-util", "process"] }
 tokio-stream = { version = "0.1.17", features = ["fs"] }
 futures = "0.3.31"
 socket2 = "0.6.0"
@@ -27,6 +27,8 @@ libp2p = { version = "0.56.0", features = [
     "identify",
     "macros",
 ] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core", "alloc", "pkcs8", "pem"] }
+rand = "0.8.0"
 dirs-next = "2.0.0"
 open = "5.3.2"
 log = { version = "0.4.27", features = ["std"] }

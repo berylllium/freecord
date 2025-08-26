@@ -2,6 +2,7 @@ pub mod button;
 pub mod container;
 pub mod context_menu;
 pub mod pane_grid;
+pub mod rule;
 pub mod scrollable;
 pub mod text;
 
@@ -61,6 +62,10 @@ pub struct General {
     #[serde(with = "color_serde")]
     pub background: Color,
     #[serde(with = "color_serde")]
+    pub background_success: Color,
+    #[serde(with = "color_serde")]
+    pub background_failure: Color,
+    #[serde(with = "color_serde")]
     pub border: Color,
     #[serde(with = "color_serde")]
     pub scrollbar: Color,
@@ -72,6 +77,8 @@ impl Default for General {
     fn default() -> Self {
         Self {
             background: Color::TRANSPARENT,
+            background_success: Color::TRANSPARENT,
+            background_failure: Color::TRANSPARENT,
             border: Color::TRANSPARENT,
             scrollbar: Color::TRANSPARENT,
             horizontal_rule: Color::TRANSPARENT,
@@ -129,6 +136,7 @@ impl Default for Text {
 pub struct Button {
     pub primary: ButtonType,
     pub secondary: ButtonType,
+    pub dangerous: ButtonType,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
