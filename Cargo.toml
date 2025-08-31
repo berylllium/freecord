@@ -20,15 +20,19 @@ serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_ignored = "0.1.12"
 libp2p = { version = "0.56.0", features = [
     "tokio",
+    "serde",
     "ping",
     "tcp",
     "noise",
     "yamux",
     "identify",
     "macros",
+    "dcutr",
+    "relay",
 ] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "alloc", "pkcs8", "pem"] }
 rand = "0.8.0"
+indexmap = { version = "2.11.0", features = ["std", "serde"] }
 dirs-next = "2.0.0"
 open = "5.3.2"
 log = { version = "0.4.27", features = ["std"] }

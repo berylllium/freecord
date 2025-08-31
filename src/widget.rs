@@ -1,5 +1,6 @@
 pub mod context_menu;
 pub mod double_pass;
+pub mod modal;
 pub mod tooltip;
 
 use crate::theme::Theme;
@@ -15,3 +16,5 @@ pub type Row<'a, Message> = iced::widget::Row<'a, Message, Theme, Renderer>;
 pub type Text<'a> = iced::widget::Text<'a, Theme, Renderer>;
 pub type Container<'a, Message> = iced::widget::Container<'a, Message, Theme, Renderer>;
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
+
+pub type Modal<'a, Message> = modal::Modal<'a, Message, Theme, Renderer>;

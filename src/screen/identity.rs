@@ -20,12 +20,15 @@ pub enum Message {
     DeleteSecretKey,
     CopyPrivatePem,
     CopyPublicPem,
+    CopyPeerId,
+    Exit,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     GenerateSecretKey,
     DeleteSecretKey,
+    Exit,
 }
 
 impl Identity {
@@ -63,6 +66,14 @@ impl Identity {
                     (Task::none(), None)
                 }
             }
+            Message::CopyPeerId => {
+                if let Some(keys) = &identity.keys {
+                    (clipboard::write(keys.peer_id().to_string()), None)
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::Exit => (Task::none(), Some(Event::Exit)),
         }
     }
 
@@ -139,6 +150,17 @@ impl Identity {
                             )
                         } else {
                             None
+                        },
+                        if keys_exist {
+                            Some(
+                                button(text("Copy PID"))
+                                    .on_press(Message::CopyPeerId)
+                                    .style(|theme, status| {
+                                        theme::button::secondary(theme, status, false)
+                                    }),
+                            )
+                        } else {
+                            None
                         }
                     ]
                     .width(Length::Fill)
@@ -149,6 +171,10 @@ impl Identity {
             ]
         };
 
+        let exit_button = button(text("Exit"))
+            .on_press(Message::Exit)
+            .style(|theme, status| theme::button::secondary(theme, status, false));
+
         let content = column![
             center(text("Identity").size(20))
                 .height(Length::Shrink)
@@ -156,7 +182,11 @@ impl Identity {
             vertical_space().height(8),
             horizontal_rule(1),
             vertical_space().height(4),
-            keypair
+            keypair,
+            vertical_space().height(Length::Fill),
+            center(exit_button)
+                .height(Length::Shrink)
+                .width(Length::Fill),
         ];
 
         container(content)

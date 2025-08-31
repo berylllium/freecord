@@ -40,14 +40,12 @@ pub enum Message {
 
 pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
+    SwitchToIdentity,
 }
 
 impl Dashboard {
     pub fn new(main_window: &Window) -> Self {
-        let (mut state, pane) =
-            pane_grid::State::new(Pane::new(Buffer::Logs(buffer::logs::Logs::new())));
-
-        state.split(pane_grid::Axis::Vertical, pane, Pane::new(Buffer::Empty));
+        let (mut state, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
 
         Self {
             panes: Panes {
@@ -109,6 +107,9 @@ impl Dashboard {
                     sidebar::Event::ConfigReloaded(config) => {
                         (Task::none(), Some(Event::ConfigReloaded(config)))
                     }
+                    sidebar::Event::SwitchToIdentity => {
+                        (Task::none(), Some(Event::SwitchToIdentity))
+                    }
                 };
 
                 return (
@@ -158,7 +159,10 @@ impl Dashboard {
         config: &'a Config,
         version: &'static str,
     ) -> Element<'a, Message> {
-        let sidebar = self.sidebar.view(version).map(Message::Sidebar);
+        let sidebar = self
+            .sidebar
+            .view(&config.nodes, version)
+            .map(Message::Sidebar);
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, _maximized| {
             let is_focused = self.is_focused(self.main_window(), id);

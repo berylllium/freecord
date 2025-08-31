@@ -119,6 +119,18 @@ pub struct Text {
     pub secondary: Color,
     #[serde(with = "color_serde")]
     pub tertiary: Color,
+    #[serde(with = "color_serde")]
+    pub success: Color,
+    #[serde(with = "color_serde")]
+    pub error: Color,
+    #[serde(with = "color_serde")]
+    pub warning: Color,
+    #[serde(with = "color_serde")]
+    pub info: Color,
+    #[serde(with = "color_serde")]
+    pub debug: Color,
+    #[serde(with = "color_serde")]
+    pub trace: Color,
 }
 
 impl Default for Text {
@@ -127,6 +139,12 @@ impl Default for Text {
             primary: Color::TRANSPARENT,
             secondary: Color::TRANSPARENT,
             tertiary: Color::TRANSPARENT,
+            success: Color::TRANSPARENT,
+            error: Color::TRANSPARENT,
+            warning: Color::TRANSPARENT,
+            info: Color::TRANSPARENT,
+            debug: Color::TRANSPARENT,
+            trace: Color::TRANSPARENT,
         }
     }
 }

@@ -28,6 +28,14 @@ pub fn menu<'a>() -> Text<'a> {
     to_text('\u{F0C9}')
 }
 
+pub fn identity<'a>() -> Text<'a> {
+    to_text('\u{E80C}')
+}
+
+pub fn globe<'a>() -> Text<'a> {
+    to_text('\u{E806}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))

@@ -1,13 +1,17 @@
 pub mod logs;
+pub mod network;
+pub mod node;
 pub mod pane;
 
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
-use logs::Logs;
-use pane::Pane;
+pub use logs::Logs;
+pub use network::Network;
+pub use node::{Map as NodeMap, Node};
+pub use pane::Pane;
 use serde::{Deserialize, Serialize};
 
-use crate::environment;
+use crate::{environment, modal};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -15,6 +19,8 @@ pub struct Config {
     pub logs: Logs,
     pub font: Font,
     pub pane: Pane,
+    pub network: Network,
+    pub nodes: NodeMap,
 }
 
 impl Config {
@@ -134,5 +140,14 @@ pub enum Error {
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value.to_string())
+    }
+}
+
+impl From<Error> for modal::Error {
+    fn from(value: Error) -> Self {
+        Self {
+            title: "Configuration error".to_string(),
+            message: value.to_string(),
+        }
     }
 }
