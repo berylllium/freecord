@@ -98,13 +98,19 @@ async fn run(stream: Box<Stream>, sender: mpsc::UnboundedSender<Message>) -> Nev
         }
     }
 
+    swarm
+        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .unwrap();
+
     for node in stream.nodes.0.iter() {
-        let _ = swarm.dial(
-            relay_address
-                .clone()
-                .with(Protocol::P2pCircuit)
-                .with(Protocol::P2p(node.1.peer_id)),
-        );
+        swarm
+            .dial(
+                relay_address
+                    .clone()
+                    .with(Protocol::P2pCircuit)
+                    .with(Protocol::P2p(node.1.peer_id)),
+            )
+            .expect("expected successful dial of remote node");
     }
 
     let _ = swarm.listen_on(relay_address.clone().with(Protocol::P2pCircuit));
@@ -125,7 +131,7 @@ async fn run(stream: Box<Stream>, sender: mpsc::UnboundedSender<Message>) -> Nev
                     BehaviourEvent::Dcutr(event) => match event.result {
                         Ok(connection_id) => {
                             log::info!(
-                                "[swarm] Successfully upgraded connection to {}",
+                                "[swarm] Successfully upgraded connection to {} to a direct connection.",
                                 event.remote_peer_id
                             );
 

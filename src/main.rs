@@ -184,14 +184,14 @@ impl Freecord {
             identity,
             theme,
             Vec::new(),
-            opts,
+            opts.clone(),
         );
 
-        let tasks = vec![
-            open_main_window.discard(),
-            Task::stream(log_stream).map(Message::Logging),
-            new_task,
-        ];
+        let mut tasks = vec![Task::stream(log_stream).map(Message::Logging), new_task];
+
+        if !opts.headless {
+            tasks.push(open_main_window.discard());
+        }
 
         (freecord, Task::batch(tasks))
     }
@@ -447,4 +447,6 @@ impl Freecord {
 struct Opts {
     #[arg(short, long, default_value_t = false)]
     random_keys: bool,
+    #[arg(long, default_value_t = false)]
+    headless: bool,
 }
