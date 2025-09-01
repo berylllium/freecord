@@ -26,6 +26,12 @@ pub struct Identity {
 }
 
 impl Identity {
+    pub fn new_random_keys() -> Self {
+        Self {
+            keys: Some(Keys::generate()),
+        }
+    }
+
     /// Loads all identities from disk.
     pub fn load() -> Result<Self, Error> {
         let keys = Keys::load()?;

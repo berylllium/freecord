@@ -1,6 +1,6 @@
 use iced::{
     Length, Task, alignment,
-    widget::{button, column, container, row, stack, text, vertical_space},
+    widget::{button, column, container, row, stack, text},
 };
 
 use crate::{

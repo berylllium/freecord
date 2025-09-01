@@ -1,15 +1,12 @@
 use iced::{
     Background, Border, Color, Length, Task, alignment, clipboard,
-    widget::{
-        button, center, column, container, horizontal_rule, horizontal_space, row, text,
-        vertical_space,
-    },
+    widget::{button, center, column, container, horizontal_rule, row, text, vertical_space},
 };
 
 use crate::{
     identity,
     theme::{self, Theme},
-    widget::{Button, Container, Element},
+    widget::{Container, Element},
 };
 
 pub struct Identity {}

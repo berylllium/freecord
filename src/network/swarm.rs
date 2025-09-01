@@ -12,7 +12,7 @@ use libp2p::{
     identity::{Keypair, ed25519},
     multiaddr::Protocol,
     noise, ping,
-    swarm::{NetworkBehaviour, SwarmEvent},
+    swarm::{DialError, NetworkBehaviour, SwarmEvent},
     tcp, yamux,
 };
 use tokio::time::Instant;
@@ -249,7 +249,7 @@ fn create_swarm(keys: &identity::Keys) -> Result<Swarm, Error> {
 }
 
 #[derive(NetworkBehaviour)]
-struct Behaviour {
+pub struct Behaviour {
     identify: identify::Behaviour,
     ping: ping::Behaviour,
     relay_client: libp2p::relay::client::Behaviour,
@@ -306,6 +306,19 @@ async fn discover(swarm: &mut Swarm, relay_addr: Multiaddr) -> Result<(), Error>
                 log::info!("[swarm] Relay told us our observed address: {observed_addr}");
                 learned_observed_addr = true;
             }
+            SwarmEvent::OutgoingConnectionError { error, .. } => match error {
+                DialError::Transport(error) => {
+                    log::error!("[swarm] Encountered transport error during discovery.");
+                    return Err(Error::TransportError(
+                        error
+                            .first()
+                            .expect("expected transport error vec to have exactly one entry")
+                            .1
+                            .to_string(),
+                    ));
+                }
+                _ => panic!("{error}"),
+            },
             event => panic!("{event:?}"),
         }
 

@@ -13,6 +13,7 @@ mod theme;
 mod widget;
 mod window;
 
+use clap::Parser;
 use config::Config;
 use futures::channel::mpsc;
 use iced::{Subscription, Task, advanced::subscription, widget::column};
@@ -49,6 +50,7 @@ struct Freecord {
     identity: Identity,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
+    opts: Opts,
 }
 
 #[derive(Debug)]
@@ -70,10 +72,11 @@ impl Freecord {
         identity: Identity,
         theme: Theme,
         pane_logs: Vec<logger::Record>,
+        opts: Opts,
     ) -> (Freecord, Task<Message>) {
         let mut modal = None;
 
-        let (config, screen) = match config {
+        let (mut config, screen) = match config {
             Ok(config) => (
                 config,
                 Screen::Dashboard(screen::dashboard::Dashboard::new(&main_window)),
@@ -113,6 +116,11 @@ impl Freecord {
             None
         };
 
+        if opts.random_keys {
+            use config::NodeMap;
+            config.nodes = NodeMap::empty();
+        }
+
         (
             Self {
                 main_window,
@@ -124,12 +132,15 @@ impl Freecord {
                 identity,
                 theme,
                 pane_logs,
+                opts,
             },
             Task::none(),
         )
     }
 
     fn initial_setup() -> (Freecord, Task<Message>) {
+        let opts = Opts::parse();
+
         let is_debug = cfg!(debug_assertions);
 
         let log_config = Config::load_logs().unwrap_or_default();
@@ -148,12 +159,16 @@ impl Freecord {
             rt.block_on(Config::load())
         };
 
-        let identity = match Identity::load() {
-            Ok(identity) => identity,
-            Err(err) => match err {
-                identity::Error::NoPrivateKeyOnDisk => Identity::default(),
-                _ => panic!("{err}"),
-            },
+        let identity = if opts.random_keys {
+            Identity::new_random_keys()
+        } else {
+            match Identity::load() {
+                Ok(identity) => identity,
+                Err(err) => match err {
+                    identity::Error::NoPrivateKeyOnDisk => Identity::default(),
+                    _ => panic!("{err}"),
+                },
+            }
         };
 
         let theme = Theme::default();
@@ -169,6 +184,7 @@ impl Freecord {
             identity,
             theme,
             Vec::new(),
+            opts,
         );
 
         let tasks = vec![
@@ -303,8 +319,16 @@ impl Freecord {
                 task.map(Message::Modal)
             }
             Message::Network(message) => match message {
-                network::swarm::Message::NodeConnected(peer_id) => todo!(),
-                network::swarm::Message::NodeDisconnected(peer_id) => todo!(),
+                network::swarm::Message::NodeConnected(peer_id) => {
+                    log::info!("[swarm] A node has connected to the swarm: {peer_id}");
+
+                    Task::none()
+                }
+                network::swarm::Message::NodeDisconnected(peer_id) => {
+                    log::info!("[swarm] A node has disconnected from the swarm: {peer_id}");
+
+                    Task::none()
+                }
                 network::swarm::Message::SwarmCreated(sender) => {
                     log::info!("[swarm] Creation completed.");
                     self.swarm_sender = Some(sender);
@@ -408,9 +432,19 @@ impl Freecord {
             self.identity.clone(),
             self.theme.clone(),
             self.pane_logs.clone(),
+            self.opts.clone(),
         );
 
         *self = freecord;
         task
     }
+}
+
+#[derive(Clone, Parser)]
+#[command(name = "freecord")]
+#[command(version = environment::VERSION)]
+#[command(about = "FOSS p2p chat app", long_about = None)]
+struct Opts {
+    #[arg(short, long, default_value_t = false)]
+    random_keys: bool,
 }

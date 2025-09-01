@@ -19,6 +19,12 @@ pub struct Node {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Map(pub IndexMap<String, Node>);
 
+impl Map {
+    pub fn empty() -> Self {
+        Self(IndexMap::new())
+    }
+}
+
 impl Hash for Map {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.as_slice().hash(state);

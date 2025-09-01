@@ -3,7 +3,7 @@ pub mod network;
 pub mod node;
 pub mod pane;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 pub use logs::Logs;
 pub use network::Network;
