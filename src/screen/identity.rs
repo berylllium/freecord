@@ -63,13 +63,7 @@ impl Identity {
                     (Task::none(), None)
                 }
             }
-            Message::CopyPeerId => {
-                if let Some(keys) = &identity.keys {
-                    (clipboard::write(keys.peer_id().to_string()), None)
-                } else {
-                    (Task::none(), None)
-                }
-            }
+            Message::CopyPeerId => todo!(),
             Message::Exit => (Task::none(), Some(Event::Exit)),
         }
     }

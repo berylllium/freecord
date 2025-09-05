@@ -15,8 +15,7 @@ mod window;
 
 use clap::Parser;
 use config::Config;
-use futures::channel::mpsc;
-use iced::{Subscription, Task, advanced::subscription, widget::column};
+use iced::{Subscription, Task, widget::column};
 use identity::Identity;
 use modal::Modal;
 use theme::Theme;
@@ -44,9 +43,6 @@ struct Freecord {
     screen: Screen,
     modal: Option<Modal>,
     config: Config,
-    /// The current swarm stream state. A value of none will drop the stream.
-    swarm_stream: Option<network::swarm::Stream>,
-    swarm_sender: Option<mpsc::Sender<network::swarm::Input>>,
     identity: Identity,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
@@ -61,7 +57,6 @@ enum Message {
     Identity(screen::identity::Message),
     Dashboard(screen::dashboard::Message),
     Modal(modal::Message),
-    Network(network::swarm::Message),
     Logging(Vec<logger::Record>),
 }
 
@@ -94,28 +89,6 @@ impl Freecord {
             }
         };
 
-        let swarm_stream = if config.network.relay_address.is_some() {
-            if let Some(keys) = identity.keys.clone() {
-                Some(network::swarm::Stream {
-                    keys: keys,
-                    config: config.network.clone(),
-                    nodes: config.nodes.clone(),
-                })
-            } else {
-                None
-            }
-        } else {
-            Self::push_modal_error(
-                &mut modal,
-                modal::Error::new(
-                    "Networking error",
-                    "`relay_address` has not been set in the config; hole punching will be unavailable until config reload.",
-                ),
-            );
-
-            None
-        };
-
         if opts.random_keys {
             use config::NodeMap;
             config.nodes = NodeMap::empty();
@@ -127,8 +100,6 @@ impl Freecord {
                 screen,
                 modal,
                 config,
-                swarm_stream,
-                swarm_sender: None,
                 identity,
                 theme,
                 pane_logs,
@@ -318,38 +289,6 @@ impl Freecord {
 
                 task.map(Message::Modal)
             }
-            Message::Network(message) => match message {
-                network::swarm::Message::NodeConnected(peer_id) => {
-                    log::info!("[swarm] A node has connected to the swarm: {peer_id}");
-
-                    Task::none()
-                }
-                network::swarm::Message::NodeDisconnected(peer_id) => {
-                    log::info!("[swarm] A node has disconnected from the swarm: {peer_id}");
-
-                    Task::none()
-                }
-                network::swarm::Message::SwarmCreated(sender) => {
-                    log::info!("[swarm] Creation completed.");
-                    self.swarm_sender = Some(sender);
-
-                    Task::none()
-                }
-                network::swarm::Message::SwarmCreationError(error) => {
-                    Self::push_modal_error(
-                        &mut self.modal,
-                        modal::Error::new(
-                            "Networking error",
-                            format!("Error during swarm creation: {error}"),
-                        ),
-                    );
-
-                    self.swarm_stream = None;
-                    self.swarm_sender = None;
-
-                    Task::none()
-                }
-            },
             Message::Logging(records) => {
                 self.pane_logs.extend(records);
                 Task::none()
@@ -397,10 +336,6 @@ impl Freecord {
     fn subscription(&self) -> Subscription<Message> {
         let mut subscriptions =
             vec![window::events().map(|(window, event)| Message::Window(window, event))];
-
-        if let Some(swarm_stream) = self.swarm_stream.clone() {
-            subscriptions.push(subscription::from_recipe(swarm_stream).map(Message::Network))
-        }
 
         Subscription::batch(subscriptions)
     }

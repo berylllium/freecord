@@ -11,7 +11,6 @@ use ed25519_dalek::{
         spki::der::{pem::LineEnding, zeroize::Zeroizing},
     },
 };
-use libp2p::PeerId;
 use rand::rngs::OsRng;
 
 use crate::environment;
@@ -139,17 +138,6 @@ impl Keys {
         use ed25519_dalek::pkcs8::EncodePublicKey;
 
         Ok(self.public.to_public_key_pem(LineEnding::default())?)
-    }
-
-    pub fn peer_id(&self) -> PeerId {
-        use libp2p::identity;
-
-        let public_key = identity::PublicKey::from(
-            identity::ed25519::PublicKey::try_from_bytes(self.public.as_bytes())
-                .expect("expected public key to be valid"),
-        );
-
-        PeerId::from_public_key(&public_key)
     }
 
     pub fn dir() -> PathBuf {

@@ -1,7 +1,6 @@
 use std::hash::Hash;
 
 use indexmap::IndexMap;
-use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
@@ -10,8 +9,6 @@ pub struct Node {
     /// inaccessable through their public IPs, because, for example, they're behind a NAT. Performs
     /// hole punching, after which the connection is upgraded to a **direct** connection.
     pub relayed: bool,
-    /// The peer id of the remote node.
-    pub peer_id: PeerId,
     /// The nickname of this node, will use node config name if left unspecified.
     pub nickname: Option<String>,
 }
