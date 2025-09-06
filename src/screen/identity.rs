@@ -2,6 +2,7 @@ use iced::{
     Background, Border, Color, Length, Task, alignment, clipboard,
     widget::{button, center, column, container, horizontal_rule, row, text, vertical_space},
 };
+use iroh::NodeId;
 
 use crate::{
     identity,
@@ -17,7 +18,7 @@ pub enum Message {
     DeleteSecretKey,
     CopyPrivatePem,
     CopyPublicPem,
-    CopyPeerId,
+    CopyNodeId,
     Exit,
 }
 
@@ -63,7 +64,16 @@ impl Identity {
                     (Task::none(), None)
                 }
             }
-            Message::CopyPeerId => todo!(),
+            Message::CopyNodeId => {
+                if let Some(keys) = &identity.keys {
+                    (
+                        clipboard::write(NodeId::from(keys.public).to_string()),
+                        None,
+                    )
+                } else {
+                    (Task::none(), None)
+                }
+            }
             Message::Exit => (Task::none(), Some(Event::Exit)),
         }
     }
@@ -144,8 +154,8 @@ impl Identity {
                         },
                         if keys_exist {
                             Some(
-                                button(text("Copy PID"))
-                                    .on_press(Message::CopyPeerId)
+                                button(text("Copy NID"))
+                                    .on_press(Message::CopyNodeId)
                                     .style(|theme, status| {
                                         theme::button::secondary(theme, status, false)
                                     }),

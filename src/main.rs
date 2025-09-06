@@ -15,7 +15,8 @@ mod window;
 
 use clap::Parser;
 use config::Config;
-use iced::{Subscription, Task, widget::column};
+use futures::{SinkExt, channel::mpsc};
+use iced::{Subscription, Task, advanced::subscription, widget::column};
 use identity::Identity;
 use modal::Modal;
 use theme::Theme;
@@ -44,6 +45,8 @@ struct Freecord {
     modal: Option<Modal>,
     config: Config,
     identity: Identity,
+    network_stream_state: Option<network::stream::Stream>,
+    network_input_sender: Option<mpsc::Sender<network::Input>>,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
     opts: Opts,
@@ -57,6 +60,7 @@ enum Message {
     Identity(screen::identity::Message),
     Dashboard(screen::dashboard::Message),
     Modal(modal::Message),
+    Network(network::Message),
     Logging(Vec<logger::Record>),
 }
 
@@ -89,6 +93,11 @@ impl Freecord {
             }
         };
 
+        let network_stream_state = match identity.keys.clone() {
+            Some(keys) => Some(network::stream::Stream { keys }),
+            None => None,
+        };
+
         if opts.random_keys {
             use config::NodeMap;
             config.nodes = NodeMap::empty();
@@ -101,6 +110,8 @@ impl Freecord {
                 modal,
                 config,
                 identity,
+                network_stream_state,
+                network_input_sender: None,
                 theme,
                 pane_logs,
                 opts,
@@ -289,6 +300,36 @@ impl Freecord {
 
                 task.map(Message::Modal)
             }
+            Message::Network(message) => match message {
+                network::Message::NodeConnected(public_key) => {
+                    log::info!(
+                        "[update] Successfully received node connection for node {public_key}"
+                    );
+                    Task::none()
+                }
+                network::Message::NodeError(error) => Task::none(),
+                network::Message::NetworkCreated(sender) => {
+                    log::info!("[update] Network successfully created.");
+
+                    self.network_input_sender = Some(sender);
+
+                    self.connect_nodes()
+                }
+                network::Message::Error(error) => {
+                    Self::push_modal_error(
+                        &mut self.modal,
+                        modal::Error::new(
+                            "Network Error",
+                            format!("Error during network creation: {}", error.to_string()),
+                        ),
+                    );
+
+                    self.network_stream_state = None;
+                    self.network_input_sender = None;
+
+                    Task::none()
+                }
+            },
             Message::Logging(records) => {
                 self.pane_logs.extend(records);
                 Task::none()
@@ -337,6 +378,11 @@ impl Freecord {
         let mut subscriptions =
             vec![window::events().map(|(window, event)| Message::Window(window, event))];
 
+        if let Some(network_stream_state) = self.network_stream_state.clone() {
+            subscriptions
+                .push(subscription::from_recipe(network_stream_state).map(Message::Network))
+        }
+
         Subscription::batch(subscriptions)
     }
 
@@ -352,6 +398,28 @@ impl Freecord {
 }
 
 impl Freecord {
+    fn connect_nodes(&self) -> Task<Message> {
+        match self.network_input_sender.clone() {
+            Some(mut sender) => {
+                if !self.config.nodes.0.is_empty() {
+                    let nodes = self.config.nodes.0.clone();
+                    Task::future((async move || {
+                        for node in nodes.into_iter() {
+                            sender
+                                .send(network::Input::Connect(node.1.node_id))
+                                .await
+                                .unwrap();
+                        }
+                    })())
+                    .discard()
+                } else {
+                    Task::none()
+                }
+            }
+            None => Task::none(),
+        }
+    }
+
     fn push_modal_error(modal: &mut Option<Modal>, error: modal::Error) {
         if let Some(Modal::Error(errors)) = modal {
             errors.push(error);
