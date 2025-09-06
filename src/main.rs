@@ -15,7 +15,6 @@ mod window;
 
 use clap::Parser;
 use config::Config;
-use futures::{SinkExt, channel::mpsc};
 use iced::{Subscription, Task, advanced::subscription, widget::column};
 use identity::Identity;
 use modal::Modal;
@@ -399,6 +398,8 @@ impl Freecord {
 
 impl Freecord {
     fn connect_nodes(&self) -> Task<Message> {
+        use futures::SinkExt;
+
         match &self.network {
             Some(network) => {
                 if !self.config.nodes.0.is_empty() {
