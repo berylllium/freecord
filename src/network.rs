@@ -1,10 +1,10 @@
 pub mod node;
 pub mod stream;
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use futures::{StreamExt, channel::mpsc, future, never::Never};
-use iroh::{Endpoint, NodeId, Watcher, endpoint::Incoming};
+use iroh::{Endpoint, NodeAddr, NodeId, RelayUrl, Watcher, endpoint::Incoming};
 use stream::Stream;
 
 use crate::identity::Keys;
@@ -15,15 +15,21 @@ pub const ALPN: &[u8] = b"/freecord/1";
 pub enum Message {
     NodeConnected(NodeId),
     NodeError(node::Error),
-    NetworkCreated(mpsc::Sender<Input>),
+    NetworkCreated(Network),
     Error(Error),
 }
 
 pub enum Input {
     ConnectionAccepted(Incoming),
     /// Attempt connecting to specified node.
-    Connect(NodeId),
+    Connect(NodeId, RelayUrl),
     Close,
+}
+
+#[derive(Debug, Clone)]
+pub struct Network {
+    pub input_sender: mpsc::Sender<Input>,
+    pub home_relay: RelayUrl,
 }
 
 async fn run(stream: Box<Stream>, sender: mpsc::UnboundedSender<Message>) -> Never {
@@ -36,9 +42,21 @@ async fn run(stream: Box<Stream>, sender: mpsc::UnboundedSender<Message>) -> Nev
         }
     };
 
+    let home_relay = endpoint
+        .home_relay()
+        .get()
+        .first()
+        .expect("expected to have a valid home relay")
+        .clone();
+
+    log::info!("[network] Endpoint home relay set to: {home_relay}");
+
     let (input_sender, input_receiver) = mpsc::channel(100);
 
-    let _ = sender.unbounded_send(Message::NetworkCreated(input_sender));
+    let _ = sender.unbounded_send(Message::NetworkCreated(Network {
+        input_sender,
+        home_relay,
+    }));
 
     let mut connections = HashMap::new();
 
@@ -102,7 +120,17 @@ async fn run(stream: Box<Stream>, sender: mpsc::UnboundedSender<Message>) -> Nev
                     }
                 }
             }
-            Input::Connect(node_id) => match endpoint.connect(node_id, ALPN).await {
+            Input::Connect(node_id, home_relay) => match endpoint
+                .connect(
+                    NodeAddr {
+                        node_id: node_id.clone(),
+                        relay_url: Some(home_relay),
+                        direct_addresses: BTreeSet::new(),
+                    },
+                    ALPN,
+                )
+                .await
+            {
                 Ok(connection) => {
                     log::info!("[network] Successfully established a connection to node {node_id}");
 

@@ -46,7 +46,7 @@ struct Freecord {
     config: Config,
     identity: Identity,
     network_stream_state: Option<network::stream::Stream>,
-    network_input_sender: Option<mpsc::Sender<network::Input>>,
+    network: Option<network::Network>,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
     opts: Opts,
@@ -111,7 +111,7 @@ impl Freecord {
                 config,
                 identity,
                 network_stream_state,
-                network_input_sender: None,
+                network: None,
                 theme,
                 pane_logs,
                 opts,
@@ -308,10 +308,10 @@ impl Freecord {
                     Task::none()
                 }
                 network::Message::NodeError(error) => Task::none(),
-                network::Message::NetworkCreated(sender) => {
+                network::Message::NetworkCreated(network) => {
                     log::info!("[update] Network successfully created.");
 
-                    self.network_input_sender = Some(sender);
+                    self.network = Some(network);
 
                     self.connect_nodes()
                 }
@@ -325,7 +325,7 @@ impl Freecord {
                     );
 
                     self.network_stream_state = None;
-                    self.network_input_sender = None;
+                    self.network = None;
 
                     Task::none()
                 }
@@ -399,14 +399,17 @@ impl Freecord {
 
 impl Freecord {
     fn connect_nodes(&self) -> Task<Message> {
-        match self.network_input_sender.clone() {
-            Some(mut sender) => {
+        match &self.network {
+            Some(network) => {
                 if !self.config.nodes.0.is_empty() {
                     let nodes = self.config.nodes.0.clone();
+                    let mut sender = network.input_sender.clone();
+                    let home_relay = network.home_relay.clone();
+
                     Task::future((async move || {
                         for node in nodes.into_iter() {
                             sender
-                                .send(network::Input::Connect(node.1.node_id))
+                                .send(network::Input::Connect(node.1.node_id, home_relay.clone()))
                                 .await
                                 .unwrap();
                         }

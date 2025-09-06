@@ -19,6 +19,7 @@ socket2 = "0.6.0"
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_ignored = "0.1.12"
 iroh = "0.91.2"
+url = "2.5.7"
 postcard = { version = "1.1.3", default-features = false, features = ["alloc", "use-std"] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "alloc", "pkcs8", "pem"] }
 rand = "0.8"
