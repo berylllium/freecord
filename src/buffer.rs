@@ -1,6 +1,8 @@
+pub mod direct_chat;
 pub mod empty;
 pub mod logs;
 
+use direct_chat::DirectChat;
 use iced::{Task, widget::pane_grid};
 use logs::Logs;
 
@@ -10,10 +12,12 @@ use crate::{config::Config, logger, widget::Element};
 pub enum Buffer {
     Empty,
     Logs(Logs),
+    DirectChat(DirectChat),
 }
 
 #[derive(Clone, Debug)]
 pub enum Message {
+    DirectChat(direct_chat::Message),
     Logs(logs::Message),
 }
 
@@ -28,13 +32,14 @@ impl Buffer {
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty => empty::view(),
+            Buffer::DirectChat(direct_chat) => direct_chat.view().map(Message::DirectChat),
             Buffer::Logs(logs) => logs.view(pane_logs, config).map(Message::Logs),
         }
     }
 
     pub fn focus(&self) -> Task<Message> {
         match self {
-            Self::Empty | Self::Logs(_) => Task::none(),
+            Self::Empty | Self::Logs(_) | Self::DirectChat(_) => Task::none(),
         }
     }
 }

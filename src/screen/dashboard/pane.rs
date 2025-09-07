@@ -73,6 +73,7 @@ impl TitleBar {
     ) -> widget::TitleBar<'a, Message> {
         let title_text = match buffer {
             Buffer::Empty => "Empty buffer",
+            Buffer::DirectChat(_) => "Direct Chat",
             Buffer::Logs(_) => "Logs",
         };
 

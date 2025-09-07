@@ -8,6 +8,7 @@ mod identity;
 mod logger;
 mod modal;
 mod network;
+mod node;
 mod screen;
 mod theme;
 mod widget;
@@ -17,7 +18,9 @@ use clap::Parser;
 use config::Config;
 use iced::{Subscription, Task, advanced::subscription, widget::column};
 use identity::Identity;
+use iroh::NodeId;
 use modal::Modal;
+use network::channel::RecvError;
 use theme::Theme;
 use tokio::runtime;
 use widget::Element;
@@ -44,6 +47,7 @@ struct Freecord {
     modal: Option<Modal>,
     config: Config,
     identity: Identity,
+    nodes: node::Map,
     network_stream_state: Option<network::stream::Stream>,
     network: Option<network::Network>,
     theme: Theme,
@@ -60,6 +64,8 @@ enum Message {
     Dashboard(screen::dashboard::Message),
     Modal(modal::Message),
     Network(network::Message),
+    Node(NodeId, Result<network::node::Message, RecvError>),
+    NodeDisconnected(NodeId),
     Logging(Vec<logger::Record>),
 }
 
@@ -92,6 +98,8 @@ impl Freecord {
             }
         };
 
+        let nodes = node::Map::new(config.nodes.clone());
+
         let network_stream_state = match identity.keys.clone() {
             Some(keys) => Some(network::stream::Stream { keys }),
             None => None,
@@ -109,6 +117,7 @@ impl Freecord {
                 modal,
                 config,
                 identity,
+                nodes,
                 network_stream_state,
                 network: None,
                 theme,
@@ -300,13 +309,18 @@ impl Freecord {
                 task.map(Message::Modal)
             }
             Message::Network(message) => match message {
-                network::Message::NodeConnected(public_key) => {
-                    log::info!(
-                        "[update] Successfully received node connection for node {public_key}"
-                    );
+                network::Message::NodeConnected(node_id, connection_state, receiver) => {
+                    self.nodes.connected(node_id, connection_state);
+
+                    Task::stream(receiver.into_stream())
+                        .map(move |msg| Message::Node(node_id, msg))
+                        .chain(Task::done(Message::NodeDisconnected(node_id)))
+                }
+                network::Message::NodeError(error) => {
+                    log::error!("[network] Node encountered error: {error}");
+
                     Task::none()
                 }
-                network::Message::NodeError(error) => Task::none(),
                 network::Message::NetworkCreated(network) => {
                     log::info!("[update] Network successfully created.");
 
@@ -329,6 +343,22 @@ impl Freecord {
                     Task::none()
                 }
             },
+            Message::Node(node_id, message) => {
+                log::info!("[network] Message from {node_id}:\n{message:?}");
+
+                Task::none()
+            }
+            Message::NodeDisconnected(node_id) => {
+                self.nodes.disconnected(node_id);
+                if let Some(network) = &mut self.network {
+                    network
+                        .input_sender
+                        .unbounded_send(network::Input::NodeDisconnected(node_id))
+                        .unwrap();
+                }
+
+                Task::none()
+            }
             Message::Logging(records) => {
                 self.pane_logs.extend(records);
                 Task::none()
