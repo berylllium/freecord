@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use futures::stream::AbortHandle;
 use indexmap::IndexMap;
 use iroh::{NodeId, endpoint::RemoteInfo};
 
@@ -12,7 +11,19 @@ pub enum ConnectionState {
         direction: Direction,
         node_info: RemoteInfo,
         sender: Sender,
+        stream_handle: AbortHandle,
     },
+}
+
+impl Drop for ConnectionState {
+    fn drop(&mut self) {
+        match self {
+            ConnectionState::Disconnected => {}
+            ConnectionState::Connected { stream_handle, .. } => {
+                stream_handle.abort();
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -39,7 +50,7 @@ impl Default for Node {
 }
 
 #[derive(Debug)]
-pub struct Map(IndexMap<NodeId, Node>);
+pub struct Map(pub IndexMap<NodeId, Node>);
 
 impl Map {
     pub fn new(nodes: config::NodeMap) -> Self {
@@ -75,6 +86,12 @@ impl Map {
     pub fn disconnected(&mut self, node_id: NodeId) {
         if let Some(node) = self.0.get_mut(&node_id) {
             node.connection_state = ConnectionState::Disconnected;
+        }
+    }
+
+    pub fn disconnect_all(&mut self) {
+        for node in self.0.iter_mut() {
+            node.1.connection_state = ConnectionState::Disconnected;
         }
     }
 }

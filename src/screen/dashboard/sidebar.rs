@@ -5,7 +5,7 @@ use iced::{
 
 use crate::{
     config::{self, Config},
-    icon,
+    icon, node,
     theme::{self},
     widget::{Column, Element, Text, context_menu::context_menu},
 };
@@ -44,16 +44,12 @@ impl Sidebar {
         }
     }
 
-    pub fn view<'a>(
-        &'a self,
-        nodes: &'a config::NodeMap,
-        version: &'static str,
-    ) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, nodes: &'a node::Map, version: &'static str) -> Element<'a, Message> {
         let contacts = container(Column::from_iter(
             nodes
                 .0
                 .iter()
-                .map(|(name, config)| Self::node_entry(name, config)),
+                .map(|(_node_id, node)| Self::node_entry(node)),
         ))
         .padding([8, 4])
         .height(Length::Fill);
@@ -63,11 +59,16 @@ impl Sidebar {
         column![contacts, menu_button].into()
     }
 
-    pub fn node_entry<'a>(node_name: &'a String, node: &'a config::Node) -> Element<'a, Message> {
+    pub fn node_entry<'a>(node: &'a node::Node) -> Element<'a, Message> {
         let name = match &node.nickname {
             Some(nickname) => nickname.as_str(),
-            None => node_name.as_str(),
+            None => node.name.as_str(),
         };
+
+        let online = matches!(
+            node.connection_state,
+            node::ConnectionState::Connected { .. }
+        );
 
         let entry = row![icon::globe(), name]
             .spacing(4)
@@ -75,7 +76,13 @@ impl Sidebar {
 
         button(entry)
             .padding(4)
-            .style(|theme, status| theme::button::secondary(theme, status, false))
+            .style(move |theme, status| {
+                if online {
+                    theme::button::primary(theme, status, false)
+                } else {
+                    theme::button::secondary(theme, status, false)
+                }
+            })
             .width(Length::Shrink)
             .height(Length::Shrink)
             .into()

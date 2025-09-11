@@ -14,13 +14,17 @@ mod theme;
 mod widget;
 mod window;
 
+use std::io;
+
 use clap::Parser;
 use config::Config;
-use iced::{Subscription, Task, advanced::subscription, widget::column};
+use futures::stream::abortable;
+use iced::{Subscription, Task, widget::column};
 use identity::Identity;
 use iroh::NodeId;
 use modal::Modal;
 use network::channel::RecvError;
+use node::ConnectionState;
 use theme::Theme;
 use tokio::runtime;
 use widget::Element;
@@ -48,7 +52,6 @@ struct Freecord {
     config: Config,
     identity: Identity,
     nodes: node::Map,
-    network_stream_state: Option<network::stream::Stream>,
     network: Option<network::Network>,
     theme: Theme,
     pane_logs: Vec<logger::Record>,
@@ -98,17 +101,13 @@ impl Freecord {
             }
         };
 
-        let nodes = node::Map::new(config.nodes.clone());
-
-        let network_stream_state = match identity.keys.clone() {
-            Some(keys) => Some(network::stream::Stream { keys }),
-            None => None,
-        };
-
-        if opts.random_keys {
+        // No preconfigured nodes allowed when in seeded mode.
+        if opts.seed.is_some() {
             use config::NodeMap;
             config.nodes = NodeMap::empty();
         }
+
+        let nodes = node::Map::new(config.nodes.clone());
 
         (
             Self {
@@ -118,7 +117,6 @@ impl Freecord {
                 config,
                 identity,
                 nodes,
-                network_stream_state,
                 network: None,
                 theme,
                 pane_logs,
@@ -149,16 +147,15 @@ impl Freecord {
             rt.block_on(Config::load())
         };
 
-        let identity = if opts.random_keys {
-            Identity::new_random_keys()
-        } else {
-            match Identity::load() {
+        let identity = match opts.seed {
+            Some(seed) => Identity::new_seeded_keys(seed),
+            None => match Identity::load() {
                 Ok(identity) => identity,
                 Err(err) => match err {
                     identity::Error::NoPrivateKeyOnDisk => Identity::default(),
                     _ => panic!("{err}"),
                 },
-            }
+            },
         };
 
         let theme = Theme::default();
@@ -168,6 +165,12 @@ impl Freecord {
             ..window::settings()
         });
 
+        let mut tasks = vec![Task::stream(log_stream).map(Message::Logging)];
+
+        if let Some(keys) = &identity.keys {
+            tasks.push(network::create_task(keys.private.clone()).map(Message::Network));
+        }
+
         let (freecord, new_task) = Self::new(
             window::Window::new(main_window),
             config,
@@ -176,8 +179,7 @@ impl Freecord {
             Vec::new(),
             opts.clone(),
         );
-
-        let mut tasks = vec![Task::stream(log_stream).map(Message::Logging), new_task];
+        tasks.push(new_task);
 
         if !opts.headless {
             tasks.push(open_main_window.discard());
@@ -205,8 +207,20 @@ impl Freecord {
                             Task::none()
                         }
                         window::Event::CloseRequested => {
-                            log::info!("gracefully shutdown");
-                            iced::exit()
+                            log::info!("[main] Shutting down...");
+
+                            if let Some(network) = &self.network {
+                                network
+                                    .input_sender
+                                    .unbounded_send(network::Input::Close)
+                                    .unwrap();
+                            }
+
+                            Task::future(tokio::time::sleep(tokio::time::Duration::from_millis(
+                                2000,
+                            )))
+                            .chain(iced::exit())
+                            .discard()
                         }
                         _ => Task::none(),
                     }
@@ -309,24 +323,48 @@ impl Freecord {
                 task.map(Message::Modal)
             }
             Message::Network(message) => match message {
-                network::Message::NodeConnected(node_id, connection_state, receiver) => {
-                    self.nodes.connected(node_id, connection_state);
+                network::Message::NodeConnected(
+                    node_id,
+                    direction,
+                    node_info,
+                    sender,
+                    receiver,
+                ) => {
+                    let (stream, stream_handle) = abortable(receiver.into_stream());
 
-                    Task::stream(receiver.into_stream())
+                    self.nodes.connected(
+                        node_id,
+                        ConnectionState::Connected {
+                            direction,
+                            node_info,
+                            sender,
+                            stream_handle,
+                        },
+                    );
+
+                    Task::stream(stream)
                         .map(move |msg| Message::Node(node_id, msg))
                         .chain(Task::done(Message::NodeDisconnected(node_id)))
                 }
                 network::Message::NodeError(error) => {
-                    log::error!("[network] Node encountered error: {error}");
+                    log::error!("[main] Node encountered error: {error}");
 
                     Task::none()
                 }
                 network::Message::NetworkCreated(network) => {
-                    log::info!("[update] Network successfully created.");
+                    log::info!("[main] Network successfully created.");
 
                     self.network = Some(network);
 
                     self.connect_nodes()
+                }
+                network::Message::NetworkClosed => {
+                    log::info!("[main] Network closed.");
+
+                    self.nodes.disconnect_all();
+                    self.network = None;
+
+                    Task::none()
                 }
                 network::Message::Error(error) => {
                     Self::push_modal_error(
@@ -337,19 +375,23 @@ impl Freecord {
                         ),
                     );
 
-                    self.network_stream_state = None;
                     self.network = None;
 
                     Task::none()
                 }
             },
             Message::Node(node_id, message) => {
-                log::info!("[network] Message from {node_id}:\n{message:?}");
+                if let Err(RecvError::Io(err)) = &message {
+                    if err.kind() != io::ErrorKind::NotConnected {
+                        log::info!("[network] Message from {node_id}:\n{message:?}");
+                    }
+                }
 
                 Task::none()
             }
             Message::NodeDisconnected(node_id) => {
                 self.nodes.disconnected(node_id);
+
                 if let Some(network) = &mut self.network {
                     network
                         .input_sender
@@ -373,7 +415,12 @@ impl Freecord {
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
                 Screen::Identity(identity) => identity.view(&self.identity).map(Message::Identity),
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(&self.pane_logs, &self.config, environment::VERSION)
+                    .view(
+                        &self.nodes,
+                        &self.pane_logs,
+                        &self.config,
+                        environment::VERSION,
+                    )
                     .map(Message::Dashboard),
             };
 
@@ -407,10 +454,10 @@ impl Freecord {
         let mut subscriptions =
             vec![window::events().map(|(window, event)| Message::Window(window, event))];
 
-        if let Some(network_stream_state) = self.network_stream_state.clone() {
-            subscriptions
-                .push(subscription::from_recipe(network_stream_state).map(Message::Network))
-        }
+        // if let Some(network_stream_state) = self.network_stream_state.clone() {
+        //     subscriptions
+        //         .push(subscription::from_recipe(network_stream_state).map(Message::Network))
+        // }
 
         Subscription::batch(subscriptions)
     }
@@ -482,8 +529,8 @@ impl Freecord {
 #[command(version = environment::VERSION)]
 #[command(about = "FOSS p2p chat app", long_about = None)]
 struct Opts {
-    #[arg(short, long, default_value_t = false)]
-    random_keys: bool,
+    #[arg(short, long)]
+    seed: Option<u8>,
     #[arg(long, default_value_t = false)]
     headless: bool,
 }

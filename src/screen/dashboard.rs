@@ -16,7 +16,7 @@ use sidebar::Sidebar;
 use crate::{
     buffer::{self, Buffer, BufferAction},
     config::{self, Config},
-    logger,
+    logger, node,
     widget::Element,
     window::{self, Window},
 };
@@ -155,14 +155,12 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
+        nodes: &'a node::Map,
         pane_logs: &'a [logger::Record],
         config: &'a Config,
         version: &'static str,
     ) -> Element<'a, Message> {
-        let sidebar = self
-            .sidebar
-            .view(&config.nodes, version)
-            .map(Message::Sidebar);
+        let sidebar = self.sidebar.view(nodes, version).map(Message::Sidebar);
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, _maximized| {
             let is_focused = self.is_focused(self.main_window(), id);

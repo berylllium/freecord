@@ -31,6 +31,12 @@ impl Identity {
         }
     }
 
+    pub fn new_seeded_keys(seed: u8) -> Self {
+        Self {
+            keys: Some(Keys::seeded(seed)),
+        }
+    }
+
     /// Loads all identities from disk.
     pub fn load() -> Result<Self, Error> {
         let keys = Keys::load()?;
@@ -66,6 +72,19 @@ impl Keys {
         let mut csprng = OsRng;
 
         let signing_key = SigningKey::generate(&mut csprng);
+        let verifying_key = signing_key.verifying_key();
+
+        Self {
+            private: signing_key,
+            public: verifying_key,
+        }
+    }
+
+    pub fn seeded(seed: u8) -> Self {
+        let mut buf = [0u8; SECRET_KEY_LENGTH];
+        buf[0] = seed;
+
+        let signing_key = SigningKey::from_bytes(&buf);
         let verifying_key = signing_key.verifying_key();
 
         Self {

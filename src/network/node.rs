@@ -1,6 +1,9 @@
 use ed25519_dalek::{Signature, Signer, SigningKey};
+use futures::Stream;
 use iroh::PublicKey;
 use serde::{Deserialize, Serialize};
+
+use super::channel::RecvError;
 
 pub type Sender = super::channel::Sender<Message>;
 pub type Receiver = super::channel::Receiver<Message>;
