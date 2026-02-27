@@ -168,7 +168,7 @@ impl Freecord {
         let mut tasks = vec![Task::stream(log_stream).map(Message::Logging)];
 
         if let Some(keys) = &identity.keys {
-            tasks.push(network::create_task(keys.private.clone()).map(Message::Network));
+            // tasks.push(network::create_task(keys.private.clone()).map(Message::Network));
         }
 
         let (freecord, new_task) = Self::new(
