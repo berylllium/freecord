@@ -59,8 +59,8 @@ where
         vec![Tree::new(&self.second_pass)]
     }
 
-    fn diff(&mut self, tree: &mut Tree) {
-        tree.diff_children(slice::from_mut(&mut self.second_pass));
+    fn diff(&self, tree: &mut Tree) {
+        tree.diff_children(slice::from_ref(&self.second_pass));
     }
 
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {

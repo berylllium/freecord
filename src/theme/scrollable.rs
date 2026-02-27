@@ -1,8 +1,8 @@
 use iced::{
-    Border, Color, Shadow,
+    Background, Border, Color, Shadow,
     widget::{
         container,
-        scrollable::{Catalog, Rail, Scroller, Status, Style, StyleFn},
+        scrollable::{AutoScroll, Catalog, Rail, Scroller, Status, Style, StyleFn},
     },
 };
 
@@ -21,17 +21,30 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
+    let scroller_color = theme.styles.general.scrollbar;
+
     let rail = Rail {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: theme.styles.general.scrollbar,
+            background: Background::Color(scroller_color),
             border: Border {
                 radius: 8.0.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
         },
+    };
+
+    let auto_scroll = AutoScroll {
+        background: Background::Color(Color::TRANSPARENT),
+        border: Border {
+            radius: 8.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        icon: scroller_color,
     };
 
     match status {
@@ -50,6 +63,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             vertical_rail: rail,
             horizontal_rail: rail,
             gap: None,
+            auto_scroll,
         },
     }
 }

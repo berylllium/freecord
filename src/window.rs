@@ -1,8 +1,6 @@
 use iced::{Point, Size};
 
-pub use iced::window::{
-    Event, Id, Position, Settings, close, events, gain_focus, get_position, open,
-};
+pub use iced::window::{Event, Id, Position, Settings, close, events, gain_focus, open, position};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Window {

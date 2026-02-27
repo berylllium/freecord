@@ -52,8 +52,8 @@ where
         ]
     }
 
-    fn diff(&mut self, tree: &mut widget::Tree) {
-        tree.diff_children(&mut [&mut self.base, &mut self.modal]);
+    fn diff(&self, tree: &mut widget::Tree) {
+        tree.diff_children(&[&self.base, &self.modal]);
     }
 
     fn size(&self) -> Size<Length> {

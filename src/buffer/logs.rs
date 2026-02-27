@@ -1,13 +1,13 @@
 use iced::{
     Length, Padding,
-    widget::{Column, container, horizontal_space, row, scrollable, text},
+    widget::{self, Column, container, row, scrollable, space, text},
 };
 
 use crate::{config::Config, logger, widget::Element};
 
 #[derive(Clone, Debug)]
 pub struct Logs {
-    scrollable: scrollable::Id,
+    scrollable: widget::Id,
 }
 
 #[derive(Clone, Debug)]
@@ -19,7 +19,7 @@ pub struct Event {}
 impl Logs {
     pub fn new() -> Self {
         Self {
-            scrollable: scrollable::Id::unique(),
+            scrollable: widget::Id::unique(),
         }
     }
 
@@ -40,7 +40,7 @@ impl Logs {
 
             row![
                 timestamp,
-                horizontal_space().width(8),
+                space::horizontal().width(8),
                 log_level,
                 text(" "),
                 message

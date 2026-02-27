@@ -19,7 +19,7 @@ use std::io;
 use clap::Parser;
 use config::Config;
 use futures::stream::abortable;
-use iced::{Subscription, Task, widget::column};
+use iced::{Subscription, Task, theme::Base, widget::column};
 use identity::Identity;
 use iroh::NodeId;
 use modal::Modal;
@@ -158,7 +158,7 @@ impl Freecord {
             },
         };
 
-        let theme = Theme::default();
+        let theme = Theme::default(iced::theme::Mode::Dark);
 
         let (main_window, open_main_window) = window::open(window::Settings {
             exit_on_close_request: false,
@@ -469,6 +469,7 @@ impl Freecord {
             id: None,
             fonts: font::load(),
             antialiasing: false,
+            vsync: true,
         }
     }
 }

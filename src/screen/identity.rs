@@ -1,6 +1,6 @@
 use iced::{
     Background, Border, Color, Length, Task, alignment, clipboard,
-    widget::{button, center, column, container, horizontal_rule, row, text, vertical_space},
+    widget::{button, center, column, container, row, rule, space, text},
 };
 use iroh::NodeId;
 
@@ -113,7 +113,7 @@ impl Identity {
 
             column![
                 text("Keypair"),
-                vertical_space().height(4),
+                space::vertical().height(4),
                 row![
                     column![
                         text("Secret Key"),
@@ -180,11 +180,11 @@ impl Identity {
             center(text("Identity").size(20))
                 .height(Length::Shrink)
                 .width(Length::Fill),
-            vertical_space().height(8),
-            horizontal_rule(1),
-            vertical_space().height(4),
+            space::vertical().height(8),
+            rule::horizontal(1),
+            space::vertical().height(4),
             keypair,
-            vertical_space().height(Length::Fill),
+            space::vertical().height(Length::Fill),
             center(exit_button)
                 .height(Length::Shrink)
                 .width(Length::Fill),

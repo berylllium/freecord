@@ -18,18 +18,14 @@ pub struct Theme {
     pub styles: Styles,
 }
 
-impl Theme {}
-
-impl Default for Theme {
-    fn default() -> Self {
+impl iced::theme::Base for Theme {
+    fn default(_preference: iced::theme::Mode) -> Theme {
         Self {
             name: DEFAULT_THEME_NAME.to_string(),
             styles: toml::from_str(DEFAULT_THEME_CONTENT).expect("expected valid default theme"),
         }
     }
-}
 
-impl iced::theme::Base for Theme {
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
             background_color: self.styles.general.background,
@@ -37,8 +33,16 @@ impl iced::theme::Base for Theme {
         }
     }
 
+    fn mode(&self) -> iced::theme::Mode {
+        iced::theme::Mode::Dark
+    }
+
     fn palette(&self) -> Option<iced::theme::Palette> {
         None
+    }
+
+    fn name(&self) -> &str {
+        "Default"
     }
 }
 

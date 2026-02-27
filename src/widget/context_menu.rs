@@ -120,8 +120,8 @@ where
         vec![widget::Tree::new(&self.base)]
     }
 
-    fn diff(&mut self, tree: &mut tree::Tree) {
-        tree.diff_children(slice::from_mut(&mut self.base));
+    fn diff(&self, tree: &mut tree::Tree) {
+        tree.diff_children(slice::from_ref(&self.base));
     }
 
     fn operate(
@@ -274,7 +274,7 @@ where
     // Ensure overlay is created / diff'd
     match state.status {
         Status::Open(_) => match menu {
-            Some(menu) => state.menu_tree.diff(menu),
+            Some(menu) => state.menu_tree.diff(&*menu),
             None => {
                 let _menu = build_menu(entries, entry);
                 state.menu_tree = widget::Tree::new(&_menu);
@@ -306,14 +306,11 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     }
 
     impl<T> Operation<T> for Close<T> {
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
-        ) {
-            operate_on_children(self);
+        fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<T>)) {
+            operate(self);
         }
+
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
 
         fn custom(
             &mut self,

@@ -1,7 +1,7 @@
 use iced::{
     Length, alignment,
     theme::Palette,
-    widget::{button, column, container, row, text, vertical_space},
+    widget::{button, column, container, row, space, text},
 };
 
 use crate::{config::Config, environment, theme, widget::Element};
@@ -63,7 +63,7 @@ impl Welcome {
         let content = column![]
             .spacing(1)
             .push(text("Welcome to Freecord!"))
-            .push(vertical_space().height(4))
+            .push(space::vertical().height(4))
             .push(text("Freecord is configured using a config file."))
             .push(row![
                 text("You can find the "),
@@ -72,9 +72,9 @@ impl Welcome {
                 }),
                 text(" file at:"),
             ])
-            .push(vertical_space().height(8))
+            .push(space::vertical().height(8))
             .push(config_button)
-            .push(vertical_space().height(8))
+            .push(space::vertical().height(8))
             .push(refresh_button)
             .align_x(alignment::Horizontal::Center);
 

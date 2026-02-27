@@ -410,7 +410,7 @@ impl Dashboard {
                 Task::none()
             }
             BufferAction::NewWindow => {
-                window::get_position(self.main_window()).then(move |main_window_position| {
+                window::position(self.main_window()).then(move |main_window_position| {
                     let (_, task) = window::open(window::Settings {
                         position: main_window_position
                             .map(|point| {
